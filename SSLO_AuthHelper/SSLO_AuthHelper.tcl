@@ -19,7 +19,7 @@ set key "authstatus"
 
 ##Optional Debug mode to clear table entries##
 switch [HTTP::uri]  {
-  "http://zdebug.gov/zdebug" {
+  "http://debug.debug/debug" {
   table delete -subtable "[IP::client_addr]" $key
   table delete -subtable "[IP::client_addr]" attempt
 	log local0. "Purged table entries for [IP::client_addr]"
