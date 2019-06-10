@@ -1,5 +1,7 @@
 when HTTP_REQUEST {
-
+#
+#Users will be authenticated once at session start. If no traffic has been observed in 180 seconds we will re-request their authentication preference with a 407 Proxy Authentication Required. Note- this will simple pass traffic to the SSLO VS for that auth type. An existing access session may not be re-authenticated every time.    
+#
 ###Edit these variables###
 #set the SSLO NTLM virtual server name
 set ntlm "sslo_ntlm.app/sslo_ntlm-xp-4"
@@ -10,17 +12,25 @@ set kerberos "sslo_explcitproxy.app/sslo_explcitproxy-xp-4"
 #set the no auth virtual server name
 set noauth "sslo_noauth.app/sslo_noauth-xp-4"
 ###Edit these variables###
-
-#Set the key used for all status table entries- somewhat arbitrary name.  
+#
+#
+#Set the table key used for all status table entries- somewhat arbitrary name.  
 set key "authstatus"
 
-##Debug##
+##Optional Debug mode to clear table entries##
+switch [HTTP::uri]  {
+  "http://zdebug.gov/zdebug" {
+  table delete -subtable "[IP::client_addr]" $key
+  table delete -subtable "[IP::client_addr]" attempt
+	log local0. "Purged table entries for [IP::client_addr]"
+  }
+}
 #table delete -subtable "[IP::client_addr]" $key
 #table delete -subtable "[IP::client_addr]" attempt
 
 #set variable called authlookup with the current authstatus of this session 
 set authlookup [table lookup -subtable [IP::client_addr] $key]
-log local0. "client IP [IP::client_addr] auth status is $authlookup"
+log local0. "client IP [IP::client_addr] auth status is $authlookup for URI [HTTP::uri]"
 #Definition of all authstatus
 #1 = known ntlm client
 #2 = known kerberos client
