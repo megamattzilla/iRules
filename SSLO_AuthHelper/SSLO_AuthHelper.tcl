@@ -25,19 +25,19 @@ switch $authlookup  {
   "1" {
   #set the SSLO NTLM virtual server name
   virtual sslo_ntlm.app/sslo_ntlm-xp-4
-#	log local0. "known IP [IP::client_addr] sent to VS $ntlm"
+  #log local0. "known IP [IP::client_addr] sent to VS $ntlm"
 	return
   }
   "2" {
   #set the SSLO Kerberos virtual server name
   virtual sslo_explcitproxy.app/sslo_explcitproxy-xp-4
-#	log local0. "known IP [IP::client_addr] sent to VS $kerberos"
+  #log local0. "known IP [IP::client_addr] sent to VS $kerberos"
 	return
   }
   "3" {
   #set the no auth virtual server name
 	virtual sslo_noauth.app/sslo_noauth-xp-4
-#	log local0. "known IP [IP::client_addr] sent to VS $noauth"
+  #log local0. "known IP [IP::client_addr] sent to VS $noauth"
 	return
   } 
 }
@@ -51,20 +51,20 @@ switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
   "4|NTLM*|*" {
   table set -subtable "[IP::client_addr]" authstatus 1
 	virtual sslo_ntlm.app/sslo_ntlm-xp-4
-#	log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $ntlm"
+  #log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $ntlm"
   }
   "4|Negotiate*|*" {
 	table set -subtable "[IP::client_addr]" authstatus 2
 	virtual sslo_explcitproxy.app/sslo_explcitproxy-xp-4
-#	log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $kerberos"
+  #log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $kerberos"
   }
   "4|*|4" {
 	table set -subtable "[IP::client_addr]" authstatus 3
 	virtual sslo_noauth.app/sslo_noauth-xp-4
-#	log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $noauth"
+  #log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS $noauth"
   }  
   default {
-#	log local0. "new IP [IP::client_addr] sending HTTP 407"
+  #log local0. "new IP [IP::client_addr] sending HTTP 407"
 	table incr -subtable "[IP::client_addr]" attempt
 	table set -subtable "[IP::client_addr]" authstatus 4
   HTTP::respond 407 -version auto content "<html><title>Authentication Required</title><body>Error: Authentication Failure</body></html>" Proxy-Authenticate "Negotiate" Proxy-Authenticate "NTLM" Proxy-Authenticate "Basic"
