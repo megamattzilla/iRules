@@ -74,7 +74,7 @@ switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
 	table set -subtable "[IP::client_addr]" authstatus 3 indefinite 30
   table set -subtable "[IP::client_addr]" attempt 5 indefinite 30
 	virtual sslo_noauth.app/sslo_noauth-xp-4
-  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS noauth"
+  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS noauth. will re-challange auth in 30 seconds"
   }  
   default {
   log local0. "new IP [IP::client_addr] sending HTTP 407"
