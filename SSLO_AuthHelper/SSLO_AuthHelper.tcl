@@ -70,8 +70,8 @@ switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
                 }
   }
   }
-  "4|*|4" {
-	table set -subtable "[IP::client_addr]" authstatus 3
+  "4|*|5" {
+	table set -subtable "[IP::client_addr]" authstatus 3 indefinite 30
 	virtual sslo_noauth.app/sslo_noauth-xp-4
   log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS noauth"
   }  
