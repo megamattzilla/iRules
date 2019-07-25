@@ -8,7 +8,8 @@ switch [HTTP::uri]  {
   "http://neverssl.com/debug" {
   table delete -subtable "[IP::client_addr]" authstatus
   table delete -subtable "[IP::client_addr]" attempt
-    log local0. "Purged table entries for [IP::client_addr]"
+  HTTP::respond 301 Location "http://neverssl.com"
+  log local0. "Purged table entries for [IP::client_addr] and redirected to new page"
   }
 }
 
@@ -87,7 +88,7 @@ switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
     log local0. "new IP [IP::client_addr] sending HTTP 407"
 	  table incr -subtable "[IP::client_addr]" attempt
 	  table set -subtable "[IP::client_addr]" authstatus 4
-    HTTP::respond 407 -version auto content "<html><title>Authentication Required</title><body>Error: Authentication Failure</body></html>" Proxy-Authenticate "Negotiate" Proxy-Authenticate "NTLM" Proxy-Authenticate "Basic"
+    HTTP::respond 407 -version auto content "<html><title>Authentication Required</title><body>Error: Authentication Failure</body></html>" Proxy-Authenticate "Basic realm=\"\"" Proxy-Authenticate "Negotiate" Proxy-Authenticate "NTLM" 
   }
 }
 }
