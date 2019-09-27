@@ -1,6 +1,6 @@
 #!/bin/bash
 #Use Linux DNS lookup to update the AD Servers list using DNS SRV Records.
-#Recommended crontab: * * * * * /root/SSLO_AD_with_SRV2.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
+#Recommended crontab: * * * * * /root/SSLO_AD_with_SRV.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
 
 ###Global Variables###
 numberofdomains=5 #Number of different AD domains to check. If more than 5 add more domain<x> variables. 
@@ -19,7 +19,7 @@ domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 5
 #Check if device is active or standby
 if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
     echo device is active at $(/bin/date)
-    for i in {1..5} #Start for loop to update SRV record per domain
+    for i in {1..$numberofdomains} #Start for loop to update SRV record per domain
     do
     var="domain$i"
     perdomain=$(echo ${!var} | awk -F',' '{print $1}')
