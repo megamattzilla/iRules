@@ -22,7 +22,7 @@ I lied... \^_^ this is actually a bash script that is intended to be executed vi
 ### [SSLO_Auth_insert_user_and_group](https://github.com/megamattzilla/iRules/tree/master/SSLO_Auth_insert_user_and_group) <a name="subparagraph2"></a>
 These iRules will insert and remove username and/or group membership information into HTTP requests being sent to service chain devices. The ability to identify users requires that authentication is being performed in APM. These iRules will pull the APM session variables to insert the appropriate information into HTTP requests for service chain devices. 
 
-There is also TCL code to be applied to an APM Visual Policy Editor -> Custom Variables action to format the users group membership at time of session creation to comma seperated groups. 
+There is also TCL code to be applied to an APM Visual Policy Editor -> Variable Assign action to format the users group membership at time of session creation to comma seperated groups. 
 Example:
 ```
 adgroup1,adgroup2,adgroup3
