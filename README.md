@@ -5,8 +5,9 @@
 3.  [SSLO_AD_with_SRV](#subparagraph1)
 4.  [SSLO_Auth_insert_user_and_group](#subparagraph2)
 5.  [SSLO_Custom_Cert_Verify](#subparagraph3)
-6.  [SSLO_Layered_Auth](#subparagraph4)
-7.  [SSLO_SNAT_Persistance](#subparagraph5)
+6.  [SSLO_Ingress_Header](#SSLO_Ingress_Header)
+7.  [SSLO_Layered_Auth](#subparagraph4)
+8.  [SSLO_SNAT_Persistance](#subparagraph5)
 
 
 # iRules Index <a name="introduction"></a>
@@ -37,6 +38,13 @@ These iRules will provide a third option to insert an HTTP header into service c
 X-Origin-BlockCertificate" <reason>
 ``` 
 Any HTTP request a security inspection device in the service chain analyzes that contain the X-Origin-BlockCertificate HTTP header must be blocked regardless of reason. Reason can be showed to a user if desired in the blocking page. 
+
+### [SSLO_Ingress_Header](https://github.com/megamattzilla/iRules/tree/master/SSLO_Ingress_Header) <a name="SSLO_Ingress_Header"></a>
+These iRules will enrich HTTP request with additional information such as the original ingress destination TCP port when using a vip targeting vip aka frontend VS.
+
+These iRules should be places on the vip targeting vip VS (frontend), proxy interception rule in SSL Orchestrator, and dummy ICAP services respectively. The dummy ICAP service are created within the SSLO wizard and then have strict updates disabled. Remove ICAP profiles of the "dummy" ICAP virtual servers and add these iRules to the corresponding first/last ICAP services.  
+
+It is important to remove sensitive enriched header information after security inspection devices so that the headers are not leaked to external servers.  
 
 ### [SSLO_Layered_Auth](https://github.com/megamattzilla/iRules/tree/master/SSLO_Layered_Auth) <a name="subparagraph4"></a>
 
