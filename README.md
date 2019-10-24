@@ -5,9 +5,10 @@
 3.  [SSLO_AD_with_SRV](#subparagraph1)
 4.  [SSLO_Auth_insert_user_and_group](#subparagraph2)
 5.  [SSLO_Custom_Cert_Verify](#subparagraph3)
-6.  [SSLO_Ingress_Header](#SSLO_Ingress_Header)
-7.  [SSLO_Layered_Auth](#subparagraph4)
-8.  [SSLO_SNAT_Persistance](#subparagraph5)
+6.  [SSLO_Custom_DNS](#SSLO_Custom_DNS)
+7.  [SSLO_Ingress_Header](#SSLO_Ingress_Header)
+8.  [SSLO_Layered_Auth](#subparagraph4)
+9.  [SSLO_SNAT_Persistance](#subparagraph5)
 
 
 # iRules Index <a name="introduction"></a>
@@ -38,6 +39,9 @@ These iRules will provide a third option to insert an HTTP header into service c
 X-Origin-BlockCertificate" <reason>
 ``` 
 Any HTTP request a security inspection device in the service chain analyzes that contain the X-Origin-BlockCertificate HTTP header must be blocked regardless of reason. Reason can be showed to a user if desired in the blocking page. 
+
+### [SSLO_Custom_DNS](https://github.com/megamattzilla/iRules/tree/master/SSLO_Custom_DNS) <a name="SSLO_Custom_DNS"></a>
+This iRule, when applied to an an eplicit proxy interception rule ending in xp-4 will override the default "Cannot resolve hostname" error message with a custom response page. As a variable is epanded to supply the URL to the end user, some methods of specifying the HTML content cannot be used such as wrapping in curly braces or iFile.   
 
 ### [SSLO_Ingress_Header](https://github.com/megamattzilla/iRules/tree/master/SSLO_Ingress_Header) <a name="SSLO_Ingress_Header"></a>
 These iRules will enrich HTTP request with additional information such as the original ingress destination TCP port when using a vip targeting vip aka frontend VS.
