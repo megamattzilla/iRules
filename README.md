@@ -41,7 +41,7 @@ X-Origin-BlockCertificate" <reason>
 Any HTTP request a security inspection device in the service chain analyzes that contain the X-Origin-BlockCertificate HTTP header must be blocked regardless of reason. Reason can be showed to a user if desired in the blocking page. 
 
 ### [SSLO_Custom_DNS](https://github.com/megamattzilla/iRules/tree/master/SSLO_Custom_DNS) <a name="SSLO_Custom_DNS"></a>
-This iRule, when applied to an an eplicit proxy interception rule ending in xp-4 will override the default "Cannot resolve hostname" error message with a custom response page. As a variable is epanded to supply the URL to the end user, some methods of specifying the HTML content cannot be used such as wrapping in curly braces or iFile.   
+This iRule, when applied to an an eplicit proxy interception rule ending in xp-4 will override the default "Cannot resolve hostname" error message with a custom response page. As a variable is expanded to supply the URL to the end user, some methods of specifying the HTML content cannot be used such as wrapping in curly braces or iFile.   
 
 ### [SSLO_Ingress_Header](https://github.com/megamattzilla/iRules/tree/master/SSLO_Ingress_Header) <a name="SSLO_Ingress_Header"></a>
 These iRules will enrich HTTP request with additional information such as the original ingress destination TCP port when using a vip targeting vip aka frontend VS.
