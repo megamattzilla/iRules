@@ -4,8 +4,10 @@ when HTTP_REQUEST {
 #Note- this will iRule will pass traffic to the SSLO VS for that auth type. An existing access session may not be re-authenticated every time, that is determined by the access profile.    
 #User-Edit Variables##
 set static::prod_ntlm_sslo "sslo_ntlm.app/sslo_ntlm-xp-4"
-set static::prod_kerberos_sslo "sslo_explcitproxy.app/sslo_explcitproxy-xp-4"
-set static::prod_noauth_sslo "sslo_noauth.app/sslo_noauth-xp-4"
+set static::prod_kerberos_sslo "sslo_prod_kerberos.app/sslo_prod_kerberos-xp-4"
+set static::prod_noauth_sslo "sslo_prod_noauth.app/sslo_prod_noauth-xp-4"
+#Specify datagroup to use for client IP authentication bypass
+set static::noauth_datagroup_ip "bypass_auth_ips"
 
 ##Optional Debug mode to clear table entries##
 switch [HTTP::uri]  {
@@ -14,6 +16,7 @@ switch [HTTP::uri]  {
   table delete -subtable "[IP::client_addr]" attempt
   HTTP::respond 301 Location "http://neverssl.com"
   log local0. "Purged table entries for [IP::client_addr] and redirected to new page"
+  return
   }
 }
 
@@ -46,6 +49,14 @@ switch $authlookup  {
   log local0. "known IP [IP::client_addr] sent to VS noauth"
 	return
   } 
+}
+
+#Check source IP against the IP auth bypass list. If we find a match, send to noauth VS and add to known user table as noauth.  
+if { [class match [IP::client_addr] equals "$static::noauth_datagroup_ip" ] } {
+  table set -subtable "[IP::client_addr]" authstatus 3 
+  virtual $static::prod_noauth_sslo
+  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] matched auth bypass and sent to VS noauth."
+  return
 }
 
 #set variable called attempt with the current auth attempt number for this client  
