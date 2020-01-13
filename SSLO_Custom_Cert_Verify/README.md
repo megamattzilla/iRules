@@ -1,5 +1,6 @@
 # These iRules will enrich HTTP request to service chain devices with an HTTP header containing origin server cetificate status.
-## Note: This iRule has 2 parts. 
+## Note: This iRule has 2 parts.
+## Requires SSLO 6.x or later  
 1.) First choose only one of these iRules depending on if a 7 day grace period is desired:  
 interceptionvs_certverity.tcl  
 interceptionvs_certverity_graceperiod.tcl
