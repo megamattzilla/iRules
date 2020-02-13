@@ -2,13 +2,28 @@ when HTTP_REQUEST {
 #
 #Users will be authenticated once at session start. If no traffic has been observed in $static::prod_idle_sec_timeout seconds we will re-request their authentication preference with a 407 Proxy Authentication Required. 
 #Note- this will iRule will pass traffic to the SSLO VS for that auth type. An existing access session may not be re-authenticated every time, that is determined by the access profile.    
-#User-Edit Variables##
+
+
+###User-Edit Variables start###
+#Specify name for NTLM SSLO topology
 set static::prod_ntlm_sslo "sslo_ntlm.app/sslo_ntlm-xp-4"
+
+#Specify name for Kerberos SSLO topology
 set static::prod_kerberos_sslo "sslo_prod_kerberos.app/sslo_prod_kerberos-xp-4"
+
+#Specify name for no-auth SSLO topology
 set static::prod_noauth_sslo "sslo_prod_noauth.app/sslo_prod_noauth-xp-4"
-set static::prod_idle_sec_timeout "900"
+
+#Specify authentication preference idle timeout 
+set static::prod_idle_sec_timeout "900" 
+
 #Specify datagroup to use for client IP authentication bypass
 set static::noauth_datagroup_ip "bypass_auth_ips"
+
+#Specify custom URL object to use for URL authentication bypass- **this will bypass auth for all traffic from this client IP**
+set static::noauth_custom_url "auth_bypass" 
+###User-Edit Variables end###
+
 
 ##Optional Debug mode to clear table entries##
 switch [HTTP::uri]  {
@@ -61,7 +76,7 @@ if { [class match [IP::client_addr] equals "$static::noauth_datagroup_ip" ] } {
 }
 
 #Check URL against the URL auth bypass list. If we find a match, send to noauth VS and add to known user table as noauth.  
-if { [CATEGORY::lookup [HTTP::uri] request_default_and_custom] contains "auth_bypass"  } {
+if { [CATEGORY::lookup [HTTP::uri] request_default_and_custom] contains $static::noauth_custom_url  } {
   table set -subtable "[IP::client_addr]" authstatus 3 $static::prod_idle_sec_timeout
   virtual $static::prod_noauth_sslo
   log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] matched URL auth bypass and sent to VS noauth."
