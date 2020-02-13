@@ -1,11 +1,12 @@
 when HTTP_REQUEST {
 #
-#Users will be authenticated once at session start. If no traffic has been observed in 180 seconds we will re-request their authentication preference with a 407 Proxy Authentication Required. 
+#Users will be authenticated once at session start. If no traffic has been observed in $static::prod_idle_sec_timeout seconds we will re-request their authentication preference with a 407 Proxy Authentication Required. 
 #Note- this will iRule will pass traffic to the SSLO VS for that auth type. An existing access session may not be re-authenticated every time, that is determined by the access profile.    
 #User-Edit Variables##
 set static::prod_ntlm_sslo "sslo_ntlm.app/sslo_ntlm-xp-4"
 set static::prod_kerberos_sslo "sslo_prod_kerberos.app/sslo_prod_kerberos-xp-4"
 set static::prod_noauth_sslo "sslo_prod_noauth.app/sslo_prod_noauth-xp-4"
+set static::prod_idle_sec_timeout "900"
 #Specify datagroup to use for client IP authentication bypass
 set static::noauth_datagroup_ip "bypass_auth_ips"
 
@@ -53,9 +54,17 @@ switch $authlookup  {
 
 #Check source IP against the IP auth bypass list. If we find a match, send to noauth VS and add to known user table as noauth.  
 if { [class match [IP::client_addr] equals "$static::noauth_datagroup_ip" ] } {
-  table set -subtable "[IP::client_addr]" authstatus 3 
+  table set -subtable "[IP::client_addr]" authstatus 3 $static::prod_idle_sec_timeout
   virtual $static::prod_noauth_sslo
-  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] matched auth bypass and sent to VS noauth."
+  log local0. "discovered IP [IP::client_addr] matched IP auth bypass and sent to VS noauth."
+  return
+}
+
+#Check URL against the URL auth bypass list. If we find a match, send to noauth VS and add to known user table as noauth.  
+if { [CATEGORY::lookup [HTTP::uri] request_default_and_custom] contains "auth_bypass"  } {
+  table set -subtable "[IP::client_addr]" authstatus 3 $static::prod_idle_sec_timeout
+  virtual $static::prod_noauth_sslo
+  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] matched URL auth bypass and sent to VS noauth."
   return
 }
 
@@ -66,30 +75,31 @@ log local0. "client IP [IP::client_addr] starting auth attempt $attempt"
 #unknown user lookup
 switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
   "4|NTLM*|*" {
-    table set -subtable "[IP::client_addr]" authstatus 1
+    table set -subtable "[IP::client_addr]" authstatus 1 $static::prod_idle_sec_timeout
     virtual $static::prod_ntlm_sslo
     log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS ntlm"
   }
   "4|Negotiate*|*" {
     #NTLM can sometimes use Negotiate header. Decode the authdata and see if NTLM data is present. 
     set decodedauth [b64decode [string trimleft [HTTP::header "Proxy-Authorization"] "Negotiate " ]]
-    log local0. "decoded proxy-auth header value is $decodedauth"
+    #The following log can cause non-ascii characters to be logged which can make some log viewing clients show garbage. 
+    #log local0. "decoded proxy-auth header value is $decodedauth"
         switch -glob $decodedauth {
           "NTLM*" {
-            table set -subtable "[IP::client_addr]" authstatus 1
+            table set -subtable "[IP::client_addr]" authstatus 1 $static::prod_idle_sec_timeout
             virtual $static::prod_ntlm_sslo
-            log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS ntlm"
+            log local0. "discovered IP [IP::client_addr] sent to VS ntlm because header [HTTP::header "Proxy-Authorization"]"
             }
         default {
-            table set -subtable "[IP::client_addr]" authstatus 2
+            table set -subtable "[IP::client_addr]" authstatus 2 $static::prod_idle_sec_timeout
             virtual $static::prod_kerberos_sslo
-            log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS kerberos"
+            log local0. "discovered IP [IP::client_addr] sent to VS kerberos because header [HTTP::header "Proxy-Authorization"]"
             }
   }
   }
   "4|Basic*|*" {
     #Kerberos access profile can also handle Basic as an option. If basic is returned by client send to Kerberos VS.  
-    table set -subtable "[IP::client_addr]" authstatus 2
+    table set -subtable "[IP::client_addr]" authstatus 2 $static::prod_idle_sec_timeout
     virtual $static::prod_kerberos_sslo
     log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] sent to VS kerberos for basic auth"
   }
@@ -102,8 +112,8 @@ switch -glob "$authlookup|[HTTP::header "Proxy-Authorization"]|$attempt"  {
   default {
     log local0. "new IP [IP::client_addr] sending HTTP 407"
 	  table incr -subtable "[IP::client_addr]" attempt
-	  table set -subtable "[IP::client_addr]" authstatus 4
-    HTTP::respond 407 -version auto content "<html><title>Authentication Required</title><body>Error: Authentication Failure</body></html>" Proxy-Authenticate "Basic realm=\"\"" Proxy-Authenticate "Negotiate" Proxy-Authenticate "NTLM" 
+	  table set -subtable "[IP::client_addr]" authstatus 4 $static::prod_idle_sec_timeout
+    HTTP::respond 407 -version auto content "<html><title>Authentication Required</title><body>Error: Authentication Failure</body></html>" Proxy-Authenticate "Negotiate" Proxy-Authenticate "NTLM" 
   }
 }
 }
