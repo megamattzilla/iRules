@@ -1,6 +1,6 @@
 #!/bin/bash
 #Use Linux DNS lookup to update the AD Servers list using DNS SRV Records.
-#Recommended crontab: * * * * * /root/SSLO_AD_with_SRV.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
+#Recommended crontab(midnight): 0 0 * * * /root/SSLO_AD_with_SRV.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
 
 ###Global Variables###
 configsync=no #yes/no to perform a configuration sync after updating FQDN list
