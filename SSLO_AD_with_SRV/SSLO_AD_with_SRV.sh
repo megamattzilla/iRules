@@ -5,8 +5,12 @@
 ###Global Variables###
 configsync=no #yes/no to perform a configuration sync after updating FQDN list
 devicegroup=default #Name of the device group for configsync
-currentquery=/var/log/SSLO_AD_with_SRV_current_query.log
-lastquery=/var/log/SSLO_AD_with_SRV_last_query.log
+updatentlm=yes #should NTLM auth profile be updated? (yes/no)
+updateldap=yes #should LDAP AAA profile be updated? (yes/no)
+currentntlmquery=/var/log/SSLO_AD_with_SRV_current_ntlmquery.log
+lastntlmquery=/var/log/SSLO_AD_with_SRV_last_ntlmquery.log
+currentldapquery=/var/log/SSLO_AD_with_SRV_current_ldapquery.log
+lastldapquery=/var/log/SSLO_AD_with_SRV_last_ldapquery.log
 
 ###Per domain Variables###
 #syntax is <domain name>,<ntlm auth profile>,<SRV query health check string (domain name etc..)>
@@ -17,6 +21,7 @@ domain1=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 1
 #domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 5
 ### end variables ###
 echo start
+updatedSRV=no #setting variable we check later if something was modified to default (no). 
 #Check if device is active or standby
 if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
     echo device is active at $(/bin/date)
@@ -27,37 +32,69 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
     perdomain=$(echo ${!var} | awk -F',' '{print $1}')
     ntlmprofilename=$(echo ${!var} | awk -F',' '{print $2}')
     querycheck=$(echo ${!var} | awk -F',' '{print $3}')
-    #Perorm DNS lookup for DCs by using the SRV record
-    queryresult=$(/bin/host -t SRV _ldap._tcp.dc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
-    #Check if query lookup was successful. result much contain the querycheck value and a period. 
-    if [[ $queryresult =~ "$querycheck" ]] && [[ $queryresult == *"."* ]]; then
-        echo query for domain $perdomain was successful. Got: $queryresult
-        #Saving query result as current query
-        echo $queryresult > $currentquery
-        #Check if lastquery history file exists. If not, create one. This is important for first execution. 
-        if /bin/test -f "$lastquery"; then
-            echo "$lastquery history file exist"
-            else
-            echo "No query history found. Recreating history file." 
-            echo $queryresult > $lastquery
+    if [ $updatentlm == "yes" ]; then
+        #Perorm DNS lookup for DCs by using the SRV record for NTLM
+        ntlmqueryresult=$(/bin/host -t SRV _ldap._tcp.dc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
+        #Check if NTLM query lookup was successful. result much contain the querycheck value and a period. 
+        if [[ $ntlmqueryresult =~ "$querycheck" ]] && [[ $ntlmqueryresult == *"."* ]]; then
+            echo NTLM query for domain $perdomain was successful. Got: $ntlmqueryresult
+            #Saving query result as current query
+            echo $ntlmqueryresult > $currentntlmquery
+            #Check if lastntlmquery history file exists. If not, create one. This is important for first execution. 
+            if /bin/test -f "$lastntlmquery"; then
+                echo "$lastntlmquery history file exist"
+                else
+                echo "No query history found. Recreating NTLM history file." 
+                echo $ntlmqueryresult > $lastntlmquery
+            fi
+            #compare current SRV DNS query versus the last successful query. If its the same, do nothing. If its different, update NTLM with new SRV
+            if /bin/cmp -s "$currentntlmquery" "$lastntlmquery"; then
+                /bin/printf 'The file "%s" is the same as "%s"\n' "$currentntlmquery" "$lastntlmquery"
+                else   
+                /bin/printf 'The file "%s" is different from "%s"\n' "$currentntlmquery" "$lastntlmquery"
+                #Updating NTLM authentication with FQDN list
+                echo "running command for domain $perdomain /bin/tmsh modify apm ntlm ntlm-auth $ntlmprofilename dc-fqdn-list replace-all-with { $ntlmqueryresult}"
+                updatedSRV=yes
+                /bin/tmsh modify apm ntlm ntlm-auth $ntlmprofilename dc-fqdn-list replace-all-with { $ntlmqueryresult}
+                #Save successful query as lastntlmquery history file  
+                echo $ntlmqueryresult > $lastntlmquery
+            fi
+        else
+            #SRV DNS health check failed- do nothing. 
+            echo NTLM SRV query was unsuccessful for domain $perdomain
         fi
-        #compare current SRV DNS query versus the last successful query. If its the same, do nothing. If its different, update NTLM with new SRV
-        if /bin/cmp -s "$currentquery" "$lastquery"; then
-            /bin/printf 'The file "%s" is the same as "%s"\n' "$currentquery" "$lastquery"
-            updatedSRV=no
-            else   
-            /bin/printf 'The file "%s" is different from "%s"\n' "$currentquery" "$lastquery"
-            #Updating NTLM authentication with FQDN list
-            echo "running command for domain $perdomain /bin/tmsh modify apm ntlm ntlm-auth $ntlmprofilename dc-fqdn-list replace-all-with { $queryresult}"
-            updatedSRV=yes
-            /bin/tmsh modify apm ntlm ntlm-auth $ntlmprofilename dc-fqdn-list replace-all-with { $queryresult}
-            #Save successful query as lastquery history file  
-            echo $queryresult > /var/log/SSLO_AD_with_SRV_last_query.log
+    fi
+    if [ $updateldap == "yes" ]; then
+        ldapqueryresult=$(/bin/host -t SRV _ldap._tcp.gc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
+        if [[ $ldapqueryresult =~ "$querycheck" ]] && [[ $ldapqueryresult == *"."* ]]; then
+            echo LDAP query for domain $perdomain was successful. Got: $ldapqueryresult
+            dnsnames=($ldapqueryresult)
+            IParray=($(for a in "${dnsnames[@]}"; do dig +short "$a"; done))
+            poolarray=($(printf "%s:389\n" "${IParray[@]}"))
+            #Saving query result as current query
+            echo ${IParray[*]} > $currentldapquery
+            #Check if lastldapquery history file exists. If not, create one. This is important for first execution. 
+            if /bin/test -f "$lastldapquery"; then
+                echo "$lastldapquery history file exist"
+                else
+                echo "No query history found. Recreating LDAP history file." 
+                echo $ldapqueryresult > $lastldapquery
+            fi
+            #compare current LDAP DNS query versus the last successful query. If its the same, do nothing. If its different, update LDAP with new SRV
+            if /bin/cmp -s "$currentldapquery" "$lastldapquery"; then
+                /bin/printf 'The file "%s" is the same as "%s"\n' "$currentldapquery" "$lastldapquery"
+                else   
+                /bin/printf 'The file "%s" is different from "%s"\n' "$currentldapquery" "$lastldapquery"
+                updatedSRV=yes
+                echo "running command for domain $perdomain /bin/tmsh modify ltm pool change-to-fqdn members replace-all-with { ${poolarray[*]} }"
+                /bin/tmsh modify ltm pool change-to-fqdn members replace-all-with { ${poolarray[*]} }
+                #Save successful query as lastldapquery history file  
+                echo ${IParray[*]} > $lastldapquery
+            fi
+        else
+            #SRV DNS health check failed- do nothing. 
+            echo LDAP SRV query was unsuccessful for domain $perdomain
         fi
-    else
-        #SRV DNS health check failed- do nothing. 
-        echo SRV query was unsuccessful for domain $perdomain
-        updatedSRV=no
     fi
     done
     #If NTLM was updated with new SRV, save the tmsh configuration. 
