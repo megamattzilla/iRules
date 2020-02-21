@@ -1,24 +1,25 @@
 #!/bin/bash
 #Use Linux DNS lookup to update the AD Servers list using DNS SRV Records.
-#Recommended crontab(midnight): 0 0 * * * /root/SSLO_AD_with_SRV.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
+#Recommended icall or crontab(midnight): 0 0 * * * /root/SSLO_AD_with_SRV.sh >> /var/log/SSLO_AD_with_SRV.log 2>&1
 
 ###Global Variables###
 configsync=no #yes/no to perform a configuration sync after updating FQDN list
 devicegroup=default #Name of the device group for configsync
 updatentlm=yes #should NTLM auth profile be updated? (yes/no)
 updateldap=yes #should LDAP AAA profile be updated? (yes/no)
-currentntlmquery=/var/log/SSLO_AD_with_SRV_current_ntlmquery.log
-lastntlmquery=/var/log/SSLO_AD_with_SRV_last_ntlmquery.log
-currentldapquery=/var/log/SSLO_AD_with_SRV_current_ldapquery.log
-lastldapquery=/var/log/SSLO_AD_with_SRV_last_ldapquery.log
+currentntlmquery=/var/log/SSLO_AD_with_SRV_current_ntlmquery.log #history file for NTLM
+lastntlmquery=/var/log/SSLO_AD_with_SRV_last_ntlmquery.log #history file for NTLM
+currentldapquery=/var/log/SSLO_AD_with_SRV_current_ldapquery.log #history file for LDAP
+lastldapquery=/var/log/SSLO_AD_with_SRV_last_ldapquery.log #history file for LDAP
+filename=/var/log/SSLO_AD_with_SRV.log #log file for this script. 
 
 ###Per domain Variables###
-#syntax is <domain name>,<ntlm auth profile>,<SRV query health check string (domain name etc..)>
-domain1=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 1
-#domain2=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 2
-#domain3=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 3
-#domain4=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 4
-#domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local #domain 5
+#syntax is <domain name>,<ntlm auth profile>,<SRV query health check string (domain name etc..)>, <LDAP LTM Pool name>, <LDAP LTM pool port>,  <LDAP domain FQDN>
+domain1=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 1
+domain2=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 2
+domain3=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 3
+domain4=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 4
+domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 5
 ### end variables ###
 echo start
 updatedSRV=no #setting variable we check later if something was modified to default (no). 
@@ -45,13 +46,13 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
                 echo "$lastntlmquery history file exist"
                 else
                 echo "No query history found. Recreating NTLM history file." 
-                echo $ntlmqueryresult > $lastntlmquery
+                echo first-time-init > $lastntlmquery
             fi
             #compare current SRV DNS query versus the last successful query. If its the same, do nothing. If its different, update NTLM with new SRV
             if /bin/cmp -s "$currentntlmquery" "$lastntlmquery"; then
-                /bin/printf 'The file "%s" is the same as "%s"\n' "$currentntlmquery" "$lastntlmquery"
+                echo "No NTLM changes detected"
                 else   
-                /bin/printf 'The file "%s" is different from "%s"\n' "$currentntlmquery" "$lastntlmquery"
+                echo "NTLM changes detected- updating NTLM APM AAA object"
                 #Updating NTLM authentication with FQDN list
                 echo "running command for domain $perdomain /bin/tmsh modify apm ntlm ntlm-auth $ntlmprofilename dc-fqdn-list replace-all-with { $ntlmqueryresult}"
                 updatedSRV=yes
@@ -65,12 +66,16 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
         fi
     fi
     if [ $updateldap == "yes" ]; then
-        ldapqueryresult=$(/bin/host -t SRV _ldap._tcp.gc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
+        ltmpool=$(echo ${!var} | awk -F',' '{print $4}')
+        ltmport=$(echo ${!var} | awk -F',' '{print $5}')
+        perdomain=$(echo ${!var} | awk -F',' '{print $6}')
+        #Perorm DNS lookup for DCs by using the SRV record for LDAP
+        ldapqueryresult=$(/bin/host -t SRV _ldap._tcp.gc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ') #SRV record query _ldap._tcp.gc._msdcs. can be changed to the SRV record you wish to query. 
         if [[ $ldapqueryresult =~ "$querycheck" ]] && [[ $ldapqueryresult == *"."* ]]; then
-            echo LDAP query for domain $perdomain was successful. Got: $ldapqueryresult
-            dnsnames=($ldapqueryresult)
-            IParray=($(for a in "${dnsnames[@]}"; do dig +short "$a"; done))
-            poolarray=($(printf "%s:389\n" "${IParray[@]}"))
+            dnsnames=($ldapqueryresult) #create an array of DNS names from the DC query 
+            IParray=($(for a in "${dnsnames[@]}"; do /bin/dig +short "$a"; done)) #take the array of DNS names and resolve them to a respective array of IP addresses 
+            poolarray=($(/bin/printf "%s:$ltmport\n" "${IParray[@]}")) #Take the array of IP addresses and append port needed for the ltmpool
+            echo "LDAP query for domain $perdomain was successful. Got DCs: $ldapqueryresult which resolved to respective IPs: ${IParray[*]}"
             #Saving query result as current query
             echo ${IParray[*]} > $currentldapquery
             #Check if lastldapquery history file exists. If not, create one. This is important for first execution. 
@@ -78,15 +83,15 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
                 echo "$lastldapquery history file exist"
                 else
                 echo "No query history found. Recreating LDAP history file." 
-                echo $ldapqueryresult > $lastldapquery
+                echo first-time-init > $lastldapquery
             fi
             #compare current LDAP DNS query versus the last successful query. If its the same, do nothing. If its different, update LDAP with new SRV
             if /bin/cmp -s "$currentldapquery" "$lastldapquery"; then
-                /bin/printf 'The file "%s" is the same as "%s"\n' "$currentldapquery" "$lastldapquery"
+                echo "No LDAP changes detected"
                 else   
-                /bin/printf 'The file "%s" is different from "%s"\n' "$currentldapquery" "$lastldapquery"
+                echo "LDAP changes detected- updating LDAP APM AAA object"
                 updatedSRV=yes
-                echo "running command for domain $perdomain /bin/tmsh modify ltm pool change-to-fqdn members replace-all-with { ${poolarray[*]} }"
+                echo "running command for domain $perdomain /bin/tmsh modify ltm pool $ltmpool members replace-all-with { ${poolarray[*]} }"
                 /bin/tmsh modify ltm pool change-to-fqdn members replace-all-with { ${poolarray[*]} }
                 #Save successful query as lastldapquery history file  
                 echo ${IParray[*]} > $lastldapquery
@@ -113,7 +118,6 @@ else
 fi
 
 #Check log file and cleanup after 5MB
-filename=/var/log/SSLO_AD_with_SRV.log
 maxsize=5242880
 filesize=$(stat -c%s "$filename")
 #echo "Size of $filename = $filesize bytes."
