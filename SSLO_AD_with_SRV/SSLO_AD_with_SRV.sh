@@ -95,7 +95,7 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
                 echo "LDAP changes detected- updating LDAP APM AAA object"
                 updatedSRV=yes
                 echo "running command for domain $perdomain /bin/tmsh modify ltm pool $ltmpool members replace-all-with { ${poolarray[*]} }"
-                /bin/tmsh modify ltm pool change-to-fqdn members replace-all-with { ${poolarray[*]} }
+                /bin/tmsh modify ltm pool $ltmpool members replace-all-with { ${poolarray[*]} }
                 #Save successful query as lastldapquery history file  
                 echo ${IParray[*]} > $lastldapquery
             fi
