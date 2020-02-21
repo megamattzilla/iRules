@@ -7,6 +7,8 @@ configsync=no #yes/no to perform a configuration sync after updating FQDN list
 devicegroup=default #Name of the device group for configsync
 updatentlm=yes #should NTLM auth profile be updated? (yes/no)
 updateldap=yes #should LDAP AAA profile be updated? (yes/no)
+ntlmsrvprefix=_ldap._tcp.dc._msdcs #SRV record query for NTLM
+ldapsrvprefix=_ldap._tcp.gc._msdcs #SRV record query for LDAP
 currentntlmquery=/var/log/SSLO_AD_with_SRV_current_ntlmquery.log #history file for NTLM
 lastntlmquery=/var/log/SSLO_AD_with_SRV_last_ntlmquery.log #history file for NTLM
 currentldapquery=/var/log/SSLO_AD_with_SRV_current_ldapquery.log #history file for LDAP
@@ -14,12 +16,12 @@ lastldapquery=/var/log/SSLO_AD_with_SRV_last_ldapquery.log #history file for LDA
 filename=/var/log/SSLO_AD_with_SRV.log #log file for this script. 
 
 ###Per domain Variables###
-#syntax is <domain name>,<ntlm auth profile>,<SRV query health check string (domain name etc..)>, <LDAP LTM Pool name>, <LDAP LTM pool port>,  <LDAP domain FQDN>
-domain1=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 1
-domain2=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 2
-domain3=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 3
-domain4=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 4
-domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local #domain 5
+#syntax is <domain name>,<ntlm auth profile>,<NTLM SRV query health check string (domain name etc..)>, <LDAP LTM Pool name>, <LDAP LTM pool port>,  <LDAP domain FQDN>, <LDAP SRV query health check string (domain name etc..)>
+domain1=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local,f5kc.lab.local #domain 1
+domain2=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local,f5kc.lab.local #domain 2
+domain3=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local,f5kc.lab.local #domain 3
+domain4=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local,f5kc.lab.local #domain 4
+domain5=f5kc.lab.local,f5kclab_ntlm,f5kc.lab.local,change-to-fqdn,389,f5kc.lab.local,f5kc.lab.local #domain 5
 ### end variables ###
 echo start
 updatedSRV=no #setting variable we check later if something was modified to default (no). 
@@ -35,7 +37,7 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
     querycheck=$(echo ${!var} | awk -F',' '{print $3}')
     if [ $updatentlm == "yes" ]; then
         #Perorm DNS lookup for DCs by using the SRV record for NTLM
-        ntlmqueryresult=$(/bin/host -t SRV _ldap._tcp.dc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
+        ntlmqueryresult=$(/bin/host -t SRV $ntlmsrvprefix.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ')
         #Check if NTLM query lookup was successful. result much contain the querycheck value and a period. 
         if [[ $ntlmqueryresult =~ "$querycheck" ]] && [[ $ntlmqueryresult == *"."* ]]; then
             echo NTLM query for domain $perdomain was successful. Got: $ntlmqueryresult
@@ -69,8 +71,9 @@ if [[ $(/bin/tmsh show cm failover-status) =~ "ACTIVE" ]]; then
         ltmpool=$(echo ${!var} | awk -F',' '{print $4}')
         ltmport=$(echo ${!var} | awk -F',' '{print $5}')
         perdomain=$(echo ${!var} | awk -F',' '{print $6}')
+        querycheck=$(echo ${!var} | awk -F',' '{print $7}')
         #Perorm DNS lookup for DCs by using the SRV record for LDAP
-        ldapqueryresult=$(/bin/host -t SRV _ldap._tcp.gc._msdcs.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ') #SRV record query _ldap._tcp.gc._msdcs. can be changed to the SRV record you wish to query. 
+        ldapqueryresult=$(/bin/host -t SRV $ldapsrvprefix.$perdomain | /bin/awk '{ print $8 }' | /bin/sort -r -n | /bin/sed 's/\.$//g' | /bin/tr '\n' ' ') #SRV record query  
         if [[ $ldapqueryresult =~ "$querycheck" ]] && [[ $ldapqueryresult == *"."* ]]; then
             dnsnames=($ldapqueryresult) #create an array of DNS names from the DC query 
             IParray=($(for a in "${dnsnames[@]}"; do /bin/dig +short "$a"; done)) #take the array of DNS names and resolve them to a respective array of IP addresses 
