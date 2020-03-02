@@ -76,10 +76,11 @@ if { [class match [IP::client_addr] equals "$static::noauth_datagroup_ip" ] } {
 }
 
 #Check URL against the URL auth bypass list. If we find a match, send to noauth VS and add to known user table as noauth.  
-if { [CATEGORY::lookup [HTTP::uri] request_default_and_custom] contains $static::noauth_custom_url  } {
+set custom_uri http://[HTTP::host]
+if { [catch [CATEGORY::lookup $custom_uri request_default_and_custom] contains $static::noauth_custom_url ]  } {
   table set -subtable "[IP::client_addr]" authstatus 3 $static::prod_idle_sec_timeout
   virtual $static::prod_noauth_sslo
-  log local0. "discovered IP [IP::client_addr] with header [HTTP::header "Proxy-Authorization"] matched URL auth bypass and sent to VS noauth."
+  log local0. "discovered IP [IP::client_addr] with request [HTTP::uri] matched URL auth bypass and sent to VS noauth."
   return
 }
 
