@@ -1,5 +1,4 @@
 #Timing of each common iRule Events. Summary provided for noteable milestones. 
-#ASM_REQUEST_DONE requires ASM porofile have raise iRule event enabled
 #CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
 #SERVERSSL_HANDSHAKE requires serverssl profile on virtual
 when FLOW_INIT {
@@ -26,11 +25,6 @@ when HTTP_REQUEST {
 when HTTP_REQUEST_DATA {
     set http_request_data_time [clock clicks -milliseconds]
     set log_string "http_request_data_time=$http_request_data_time"
-    log local0. $log_string
-}
-when ASM_REQUEST_DONE {
-    set asm_request_done_time [clock clicks -milliseconds]
-    set log_string "asm_request_done_time=$asm_request_done_time"
     log local0. $log_string
 }
 when LB_SELECTED {
@@ -90,15 +84,15 @@ when CLIENT_CLOSED {
     #set local_hostname [info hostname]
     set a [expr { $http_response_time - $http_request_send_time } ]
     set b [expr { $http_request_send_time - $lb_selected_time } ]
-    set c [expr { $lb_selected_time - $asm_request_done_time } ]
+    set c [expr { $lb_selected_time - $http_request_time } ]
     #set d [expr { $http_request_data_time - $http_request_time } ]
     set e [expr { $http_response_time - $http_request_time } ]
-    set f [expr { $asm_request_done_time - $http_request_time } ]
+    set f [expr { $http_request_release_time - $http_request_time } ]
     set g [expr { $client_accept_time - $flow_init_time } ]
     set h [expr { $server_connect_time - $lb_selected_time } ]
     set i [expr { $client_closed_time - $flow_init_time } ]
     set j [expr { $server_closed_time - $server_connect_time } ]
-    set log_string "::Session_Summary:: Start_Client_IP:[IP::client_addr] Start_Client_Port:[TCP::client_port] Time_spent_in_Client_3WHS:$g Time_spent_in_ASM:$f Time_spent_in_LB_selected:$c Time_spent_in_Server_3WHS:$h Total_Server_Lifetime:$j Total_Client_lifetime:$i"
+    set log_string "::Session_Summary:: Start_Client_IP:[IP::client_addr] Start_Client_Port:[TCP::client_port] Time_spent_in_Client_3WHS:$g Time_spent_in_All_Modules:$f Time_spent_in_LB_selected:$c Time_spent_in_Server_3WHS:$h Total_Server_Lifetime:$j Total_Client_lifetime:$i"
     foreach log_loop $log_string {
         log local0. $log_loop
     }
