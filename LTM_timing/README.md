@@ -1,4 +1,5 @@
-## Timing of each common iRule Events in milliseconds. Summary provided for noteable milestones. 
+## Timing of common iRule Events in milliseconds. 
+## Summary provided for noteable milestones. 
  ASM_REQUEST_DONE requires ASM profile has raise iRule event enabled
  
  CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
