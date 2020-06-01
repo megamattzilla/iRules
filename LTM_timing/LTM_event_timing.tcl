@@ -105,14 +105,14 @@ when CLIENT_CLOSED {
     #set local_hostname [info hostname]
 #    set a [expr { $http_response_time - $http_request_send_time } ]
 #    set b [expr { $http_request_send_time - $lb_selected_time } ]
-    set c [expr { $lb_selected_time - $http_request_time } ]
+    set c [expr { $lb_selected_time - $http_request_time } ] ; #Time_spent_in_LB_selected
     #set d [expr { $http_request_data_time - $http_request_time } ]
 #    set e [expr { $http_response_time - $http_request_time } ]
-    set f [expr { $http_request_release_time - $http_request_time } ]
-    set g [expr { $client_accept_time - $flow_init_time } ]
-    set h [expr { $server_connect_time - $lb_selected_time } ]
-    set i [expr { $client_closed_time - $flow_init_time } ]
-    set j [expr { $server_closed_time - $server_connect_time } ]
+    set f [expr { $http_request_release_time - $http_request_time } ] ; #Time_spent_in_All_Modules
+    set g [expr { $client_accept_time - $flow_init_time } ] ; #Time_spent_in_Client_3WHS
+    set h [expr { $server_connect_time - $lb_selected_time } ] ; #Time_spent_in_Server_3WHS
+    set i [expr { $client_closed_time - $flow_init_time } ] ; #Total_Client_lifetime
+    set j [expr { $server_closed_time - $server_connect_time } ] ; #Total_Server_Lifetime
     set log_string "::Session_Summary:: Start_Client_IP:[IP::client_addr] Start_Client_Port:[TCP::client_port] Time_spent_in_Client_3WHS:$g Time_spent_in_All_Modules:$f Time_spent_in_LB_selected:$c Time_spent_in_Server_3WHS:$h Total_Server_Lifetime:$j Total_Client_lifetime:$i"
     foreach log_loop $log_string {
         log local0. $log_loop
