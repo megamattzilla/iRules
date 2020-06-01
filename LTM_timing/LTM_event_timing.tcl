@@ -7,7 +7,12 @@ when FLOW_INIT {
     log local0. "::New_Session_Details::"
     log local0. $log_string
 }
-when CLIENT_ACCEPTED {
+when CLIENT_ACCEPTED priority 100 {
+    set client_accept_start_time [clock clicks -milliseconds]
+    set log_string "client_accept_start_time=$client_accept_start_time"
+    log local0. $log_string
+}
+when CLIENT_ACCEPTED priority 1000 {
     set client_accept_time [clock clicks -milliseconds]
     set log_string "client_accept_time=$client_accept_time"
     log local0. $log_string
@@ -17,7 +22,12 @@ when CLIENT_ACCEPTED {
 #    set log_string "client_ssl_time=$client_ssl_time"
 #    log local0. $log_string
 #}
-when HTTP_REQUEST {
+when HTTP_REQUEST priority 100 {
+    set http_request_start_time [clock clicks -milliseconds]
+    set log_string "http_request_start_time=$http_request_start_time"
+    log local0. $log_string
+}
+when HTTP_REQUEST priority 1000 {
     set http_request_time [clock clicks -milliseconds]
     set log_string "http_request_time=$http_request_time"
     log local0. $log_string
@@ -27,7 +37,7 @@ when HTTP_REQUEST_DATA {
     set log_string "http_request_data_time=$http_request_data_time"
     log local0. $log_string
 }
-#Uncomment below lines to add ASM timing. Requires ASM policy have iRule events enabled. 
+#Uncomment below lines to add ASM timing. Requires ASM profile to have iRule events disabled. 
 #when ASM_REQUEST_DONE {
 #    set asm_request_done_time [clock clicks -milliseconds]
 #    set log_string "asm_request_done_time=$asm_request_done_time"
@@ -68,7 +78,12 @@ when SERVER_CONNECTED {
 #    set log_string "client_ssl_time=$client_ssl_time"
 #    log local0. $log_string
 #}
-when HTTP_RESPONSE {
+when HTTP_RESPONSE priority 100 {
+    set http_response_start_time [clock clicks -milliseconds]
+    set log_string "http_response_start_time=$http_response_start_time"
+    log local0. $log_string
+}
+when HTTP_RESPONSE priority 1000 {
     set http_response_time [clock clicks -milliseconds]
     set log_string "http_response_time=$http_response_time"
     log local0. $log_string
@@ -88,11 +103,11 @@ when CLIENT_CLOSED {
     log local0. client_closed_time=$client_closed_time
     #set clientip [IP::remote_addr]
     #set local_hostname [info hostname]
-    set a [expr { $http_response_time - $http_request_send_time } ]
-    set b [expr { $http_request_send_time - $lb_selected_time } ]
+#    set a [expr { $http_response_time - $http_request_send_time } ]
+#    set b [expr { $http_request_send_time - $lb_selected_time } ]
     set c [expr { $lb_selected_time - $http_request_time } ]
     #set d [expr { $http_request_data_time - $http_request_time } ]
-    set e [expr { $http_response_time - $http_request_time } ]
+#    set e [expr { $http_response_time - $http_request_time } ]
     set f [expr { $http_request_release_time - $http_request_time } ]
     set g [expr { $client_accept_time - $flow_init_time } ]
     set h [expr { $server_connect_time - $lb_selected_time } ]
