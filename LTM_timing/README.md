@@ -1,6 +1,8 @@
 ### Timing of common iRule Events in milliseconds. 
 ### Summary provided for noteable milestones. 
  
+ HTTP Events require a client and server HTTP profile on virtual
+ 
  CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
  
  SERVERSSL_HANDSHAKE requires serverssl profile on virtual 
