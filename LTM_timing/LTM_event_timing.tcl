@@ -27,6 +27,12 @@ when HTTP_REQUEST_DATA {
     set log_string "http_request_data_time=$http_request_data_time"
     log local0. $log_string
 }
+#Uncomment below lines to add ASM timing. Requires ASM policy have iRule events enabled. 
+#when ASM_REQUEST_DONE {
+#    set asm_request_done_time [clock clicks -milliseconds]
+#    set log_string "asm_request_done_time=$asm_request_done_time"
+#    log local0. $log_string
+#}
 when LB_SELECTED {
     set lb_selected_time [clock clicks -milliseconds]
     set log_string "lb_selected_time=$lb_selected_time"
