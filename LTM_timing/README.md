@@ -1,7 +1,7 @@
-#Timing of each common iRule Events. Summary provided for noteable milestones. 
-#ASM_REQUEST_DONE requires ASM porofile have raise iRule event enabled
-#CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
-#SERVERSSL_HANDSHAKE requires serverssl profile on virtual
+## Timing of each common iRule Events. Summary provided for noteable milestones. 
+## ASM_REQUEST_DONE requires ASM porofile have raise iRule event enabled
+## CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
+## SERVERSSL_HANDSHAKE requires serverssl profile on virtual
 
 ## Expected output
 ```bash
