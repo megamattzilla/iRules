@@ -13,6 +13,8 @@ when FLOW_INIT {
     set lb_selected_time 0 
     set lb_failed_time 0 
     set lb_queued_time 0 
+    set lb_poolmember_ip 0
+    set lb_failmember_ip 0 
     set http_request_send_time 0 
     set http_request_release_time 0 
     set server_connect_time 0 
@@ -44,9 +46,11 @@ when ASM_REQUEST_DONE {
 }
 when LB_SELECTED {
     set lb_selected_time [clock clicks -milliseconds]
+    set lb_poolmember_ip [LB::server addr]
 }
 when LB_FAILED {
     set lb_failed_time [clock clicks -milliseconds]
+    set lb_failmember_ip [LB::server addr]
 }
 when LB_QUEUED {
     set lb_queued_time [clock clicks -milliseconds]
@@ -78,12 +82,11 @@ when SERVER_CLOSED {
 when CLIENT_CLOSED { 
     set client_closed_time [clock clicks -milliseconds]
     catch {
-    set c [expr { $lb_selected_time - $http_request_time } ] ; #Time_spent_in_LB_selected
-    set f [expr { $http_request_release_time - $http_request_time } ] ; #Time_spent_in_All_Modules
+    set f [expr { $lb_selected_time - $http_request_time } ] ; #Time_spent_in_All_Modules
     set g [expr { $client_accept_time - $flow_init_time } ] ; #Time_spent_in_Client_3WHS
     set h [expr { $server_connect_time - $lb_selected_time } ] ; #Time_spent_in_Server_3WHS
     set i [expr { $client_closed_time - $flow_init_time } ] ; #Total_Client_lifetime
     set j [expr { $server_closed_time - $server_connect_time } ] ; #Total_Server_Lifetime
-    log local0. "Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time,SERVER_CLOSED=$server_closed_time,CLIENT_CLOSED=$client_closed_time,Time_spent_in_Client_3WHS=$g,Time_spent_in_All_Modules=$f,Time_spent_in_LB_selected=$c,Time_spent_in_Server_3WHS=$h,Total_Server_Lifetime=$j,Total_Client_lifetime=$i" 
+    log local0. "Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,LB_POOL_MEMBER=$lb_poolmember_ip,LB_FAILED_IP=$lb_failmember_ip,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time,SERVER_CLOSED=$server_closed_time,CLIENT_CLOSED=$client_closed_time,Time_spent_in_Client_3WHS=$g,Time_spent_in_All_Modules=$f,Time_spent_in_Server_3WHS=$h,Total_Server_Lifetime=$j,Total_Client_lifetime=$i" 
     } 
 }
