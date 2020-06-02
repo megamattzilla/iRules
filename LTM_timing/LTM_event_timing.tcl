@@ -38,7 +38,7 @@ when HTTP_REQUEST priority 100 {
 when HTTP_REQUEST priority 1000 {
     set http_request_time [clock clicks -milliseconds]
 }
-#Requires ASM profile to have iRule events enabled to populat data. Its ok if its disabled in the ASM policy..   
+#Requires ASM profile to have iRule events enabled to populat data. Its ok if its disabled in the ASM policy and still uncommented here.   
 when ASM_REQUEST_DONE {
     set asm_request_done_time [clock clicks -milliseconds]
 }
