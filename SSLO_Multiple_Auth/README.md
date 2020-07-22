@@ -4,9 +4,9 @@ A manually created "front end" virtual server must exist to intercept HTTP reque
 Point users proxy to this front end virtual IP and port first. The iRule will direct traffic to the SSLO virtual server with authentication profiles corresponding to the clients authentication preference.    
 
 ### Prerequisite: 
-Edit the variables in the iRule for the virtual server names to fit your environment. 
-Create SSLO Topology with access profile performing Kerberos authentication
-Create SSLO Topology with access profile performing captive portal auth (SSLO access profile)
+Edit the variables in the iRule for the virtual server names to fit your environment.   
+Create SSLO Topology with access profile performing Kerberos authentication  
+Create SSLO Topology with access profile performing captive portal auth (SSLO access profile)  
 - Create an SWG-Transparent access profile. This profile will be attached to the separate captive portal “login” virtual server.
 - ProfileType:selectSWG-Transparent.
 - ProfileScope:SSLO introduces a new profile scope(named)for captive portal authentication that must match between it and the SWG-Transparent access profile Select Named.
