@@ -1,33 +1,16 @@
-### Timing of common iRule Events in milliseconds. 
+### Timing of common iRule Events in milliseconds throughout the lifetime of a TCP session. 
+
 ### Summary provided for noteable milestones. 
  
  HTTP Events require a client and server HTTP profile on virtual
+ 
+ **ONECONNECT will skew some of the results**
  
  CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
  
  SERVERSSL_HANDSHAKE requires serverssl profile on virtual 
  
-### Expected output
-```bash
-<FLOW_INIT>:::New_Session_Details::
-<FLOW_INIT>:flow_init_time=1591046533637
-<CLIENT_ACCEPTED>:client_accept_time=1591046533637
-<HTTP_REQUEST>:http_request_time=1591046533637
-<LB_SELECTED>:lb_selected_time=1591046533639
-<SERVER_CONNECTED>:server_connect_time=1591046533639
-<HTTP_REQUEST_SEND>:http_request_send_time=1591046533639
-<HTTP_REQUEST_RELEASE>:http_request_release_time=1591046533639
-<HTTP_RESPONSE>:http_response_time=1591046533640
-<HTTP_RESPONSE_RELEASE>:http_response_release_time=1591046533640
-<SERVER_CLOSED>:server_closed_time=1591046533641
-<CLIENT_CLOSED>:client_closed_time=1591046533641
-<CLIENT_CLOSED>:::Session_Summary::
-<CLIENT_CLOSED>:Start_Client_IP:10.5.20.129
-<CLIENT_CLOSED>:Start_Client_Port:35450
-<CLIENT_CLOSED>:Time_spent_in_Client_3WHS:0
-<CLIENT_CLOSED>:Time_spent_in_All_Modules:1
-<CLIENT_CLOSED>:Time_spent_in_LB_selected:1
-<CLIENT_CLOSED>:Time_spent_in_Server_3WHS:0
-<CLIENT_CLOSED>:Total_Server_Lifetime:2
-<CLIENT_CLOSED>:Total_Client_lifetime:4
-```
+### Example output
+
+Start_Client_IP=10.5.20.129,Start_Client_Port=36098,FLOW_INIT=1594329854833,CLIENT_ACCEPTED_START=1594329854833,CLIENT_ACCEPT_DONE=1594329854833,HTTP_REQUEST_START=1594329854833,HTTP_REQUEST_DONE=1594329854833,ASM_REQUEST_DONE=0,LB_SELECTED=1594329854833,LB_FAILED=0,LB_QUEUED=0,LB_POOL_MEMBER=10.5.5.20,LB_FAILED_IP=0,HTTP_REQUEST_SEND=1594329854834,HTTP_REQUEST_RELEASE=1594329854834,SERVER_CONNECTED=1594329854834,HTTP_RESPONSE_START=1594329854835,HTTP_RESPONSE_DONE=1594329854835,HTTP_RESPONSE_RELEASE=1594329854835,SERVER_CLOSED=1594329854837,CLIENT_CLOSED=1594329854837,Time_spent_in_Client_3WHS=0,Time_spent_in_All_Modules=0,Time_spent_in_Server_3WHS=1,Total_Server_Lifetime=3,Total_Client_lifetime=4
+
