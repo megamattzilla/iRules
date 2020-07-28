@@ -26,7 +26,8 @@ set static::debuglog "1"
 
 when HTTP_REQUEST priority 200 {
 
-if { $static::debuglog } { log local0. "DEBUG: 5tuple [client_addr]:[client_port] -> [IP::local_addr]:[TCP::local_port] proto [IP::protocol] SID [ACCESS::session sid] Access profile [ACCESS::session data get "session.access.profile"] user [ACCESS::session data get "session.logon.last.username"]" }
+if { $static::debuglog } { log local0. "DEBUG: CPU [TMM::cmp_unit] VS [virtual] 5tuple [client_addr]:[client_port] -> [IP::local_addr]:[TCP::local_port] proto [IP::protocol] for [HTTP::host][HTTP::uri] SID [ACCESS::session sid] Access profile [ACCESS::session data get "session.access.profile"] user [ACCESS::session data get "session.logon.last.username"] accesssid [table lookup -subtable [IP::client_addr] accesssid]" 
+ }
 
 
 #set variable called authlookup with the current authstatus of this session 
