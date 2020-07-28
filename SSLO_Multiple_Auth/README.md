@@ -1,4 +1,4 @@
-#Version 1.3
+# Version 1.3
 ## This iRule allows you to perform multiple authentication methods (kerberos and then captive portal) with F5 SSL Orchestrator in Explicit Proxy interception. 
 
 A manually created "front end" virtual server must exist to intercept explicit proxy HTTP requests before the SSL Orchestrator Explicit proxy virtual servers.   
