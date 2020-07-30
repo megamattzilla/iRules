@@ -1,12 +1,3 @@
-# Version 1.4
-New in version 1.4
-- Added variable initialization section so that all iRule table data times out when the idle timeout is reached for the user session (prod_idle_sec_timeout).  
-- Added a no-auth domain whitelist to the SSLO_vip_target_vip_multiple_auth.tcl iRule. Added both exact match and wildcard data group lookups. See variables for reference to datagroup name. 
-- Added checks to see if users fail to respond to the HTP 407 proxy auth and fail back to captive portal auth. 
-- Added checks to see if users fail to redirect to the captive portal (servers that dont support captive portal) and fail back to no auth.
-- Added two variables to set the threshold for the 407 and captive portal checks. I had to set these fairly large to accommodate web browsers (Edge/IE) that send a large amount of HTTP requests when they first open.
-- Updated logging with "## action description ##" when traffic steering decisions are made per HTTP request. All other information logged is informational. 
-
 ## This iRule allows you to perform multiple authentication methods (kerberos and then captive portal) with F5 SSL Orchestrator in Explicit Proxy interception. 
 
 A manually created "front end" virtual server must exist to intercept explicit proxy HTTP requests before the SSL Orchestrator Explicit proxy virtual servers.   
@@ -14,6 +5,15 @@ Point users proxy to this front end virtual IP and port first. The iRule will di
 
 All clients will be directed to authenticate with a 407 Proxy Authentication first. 
 If they fail to authenticate with kerberos, APM will redirect their explicit proxy HTTP (or HTTPS) request to the captive portal login page. 
+
+# Version 1.4
+New in version 1.4  
+- Added variable initialization section so that all iRule table data times out when the idle timeout is reached for the user session (prod_idle_sec_timeout).  
+- Added a no-auth domain whitelist to the SSLO_vip_target_vip_multiple_auth.tcl iRule. Added both exact match and wildcard data group lookups. See variables for reference to datagroup name. 
+- Added checks to see if users fail to respond to the HTP 407 proxy auth and fail back to captive portal auth. 
+- Added checks to see if users fail to redirect to the captive portal (servers that dont support captive portal) and fail back to no auth.
+- Added two variables to set the threshold for the 407 and captive portal checks. I had to set these fairly large to accommodate web browsers (Edge/IE) that send a large amount of HTTP requests when they first open.
+- Updated logging with "## action description ##" when traffic steering decisions are made per HTTP request. All other information logged is informational. 
 
 ### Prerequisites: 
 Edit the variables in the **SSLO_vip_target_vip_multiple_auth.tcl** iRule for the virtual server names to fit your environment.   
