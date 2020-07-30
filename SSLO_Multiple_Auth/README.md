@@ -6,7 +6,7 @@ Point users proxy to this front end virtual IP and port first. The iRule will di
 All clients will be directed to authenticate with a 407 Proxy Authentication first. 
 If they fail to authenticate with kerberos, APM will redirect their explicit proxy HTTP (or HTTPS) request to the captive portal login page. 
 
-# Version 1.4
+## Version 1.4
 New in version 1.4  
 - Added variable initialization section so that all iRule table data times out when the idle timeout is reached for the user session (prod_idle_sec_timeout).  
 - Added a no-auth domain whitelist to the SSLO_vip_target_vip_multiple_auth.tcl iRule. Added both exact match and wildcard data group lookups. See variables for reference to datagroup name. 
