@@ -1,5 +1,4 @@
 when ACCESS_POLICY_AGENT_EVENT priority 200 { 
-    #Look for the custom trigger iRule in VPE
     if { [ACCESS::policy agent_id] eq "42" } {
         #Kerberos auth failed
         table set -subtable "[IP::client_addr]" kerbaccesssid [ACCESS::session sid] 
