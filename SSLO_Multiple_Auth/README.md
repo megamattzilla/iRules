@@ -16,7 +16,8 @@ New in version 1.4
 - Updated logging with "## action description ##" when traffic steering decisions are made per HTTP request. All other information logged is informational. 
 
 ### Prerequisites: 
-Edit the variables in the **SSLO_vip_target_vip_multiple_auth.tcl** iRule for the virtual server names to fit your environment.   
+Edit the variables in the **SSLO_vip_target_vip_multiple_auth.tcl** iRule for the virtual server names to fit your environment.  
+**Idle timeout variable prod_idle_sec_timeout should match the APM profile idle timeout for Kerberos and Captive Portal.**
 
 Create SSLO Topology with access profile performing explicit proxy 407  Kerberos authentication.  
 The VPE should have a raise iRule event (ID = 42) on the fallback branch on the Kerberos object.     
