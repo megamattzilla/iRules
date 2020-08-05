@@ -1,8 +1,8 @@
 # These iRules will enrich HTTP request to service chain devices with an HTTP header containing origin server cetificate status.
 ## Note: This iRule has 2 parts.
-## Requires SSLO 6.x or later
 
-## Prequsites
+## Prerequisites
+- Requires SSLO 6.x or later
 - SSL Orchestrator SSL configuration has Expire Certificate Response set to ignore
 - SSL Orchestrator SSL configuration has Untrusted Certificate Authority set to ignore
 - SSL Orchestrator Security Policy has Server Certificate Status Check disabled
