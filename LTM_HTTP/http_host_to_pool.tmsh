@@ -1,0 +1,8 @@
+ltm data-group internal header_to_pool {
+    records {
+        10.5.20.15 {
+            data maintenance_page
+        }
+    }
+    type string
+}
