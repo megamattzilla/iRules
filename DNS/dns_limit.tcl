@@ -18,7 +18,7 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
     } elseif {[table lookup $key] ne ""} {
         set count [table incr $key]
         if {$count > $static::maxq} {
-            log local2. "Matched DenyList [IP::remote_addr] [DNS::question type] [domain [DNS::question name] 4]"
+            log local2. "DNS lookups exceeded [IP::remote_addr] [DNS::question type] [domain [DNS::question name] 4]"
             return
         }
     } else {
