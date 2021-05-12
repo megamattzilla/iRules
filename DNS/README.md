@@ -1,7 +1,8 @@
 ### DNS tunnel mitigation 
 https://devcentral.f5.com/s/articles/DNS-Tunnel-Mitigation-v2
 
-### 1. Create data groups
+### Create data groups
+```
 create ltm data-group internal TunnelType records replace-all-with { CNAME { } } type string
 modify ltm data-group internal TunnelType records add { TXT { } }
 modify ltm data-group internal TunnelType records add { SRV { } }
@@ -18,3 +19,4 @@ modify ltm data-group internal DNSDenyList records add { cutheatergroup.cn { dat
 modify ltm data-group internal DNSDenyList records add { demodomain.cz { data demodomain.cz } }
 modify ltm data-group internal DNSDenyList records add { buo.cc { data buo.cc } }
 modify ltm data-group internal DNSDenyList records add { pdk.lcn.cc { data pdk.lcn.cc } }
+```
