@@ -4,6 +4,12 @@ when RULE_INIT {
     # Detection & Blocking Period
     set static::btime 60
 }
+##when CLIENT_ACCEPTED {
+# create logging connection. 
+# POOLS MUST EXIST BEFORE ENABLING. Pool points to ltm pool containing log server. 
+     #Un-comment below after adding desired LTM pool and remove double ## on lines 7 & 12 & 27 & 39. 
+     ##set hsludp [HSL::open -proto UDP -pool /Common/logging-pool]
+##}
 when DNS_REQUEST {
     set srcip [IP::remote_addr]
     set qtype [DNS::question type]
@@ -15,7 +21,10 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
     } elseif {[class match $DomOrigen ends_with DNSDenyList] }{
         #Un-comment drop to enable blocking mode
         #DNS::drop
+        #Un-comment below for local GTM logging
         log local2. "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
+        #Un-comment below for remote logging
+        ##HSL::send $hsludp "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
         return
     } elseif {[table lookup $key] ne ""} {
         set count [table incr $key]
@@ -24,7 +33,10 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
             #DNS::drop
             if {$count == $static::maxq} {
                 #only log when we match the first maxq
+                #Un-comment below for local GTM logging
                 log local2. "DNS Tunnel Suspected - IP: $srcip - $qtype - $DomOrigen"
+                #Un-comment below for remote logging
+                ##HSL::send $hsludp "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
             }
             return
         }
