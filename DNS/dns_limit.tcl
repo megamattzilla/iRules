@@ -13,12 +13,19 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
     if {[class match $DomOrigen ends_with DNSAllowList] }{
         return
     } elseif {[class match $DomOrigen ends_with DNSDenyList] }{
-        log local2. "Matched DenyList [IP::remote_addr] [DNS::question type] [domain [DNS::question name] 4]"
+        #Un-comment drop to enable blocking mode
+        #DNS::drop
+        log local2. "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
         return
     } elseif {[table lookup $key] ne ""} {
         set count [table incr $key]
         if {$count > $static::maxq} {
-            log local2. "DNS lookups exceeded [IP::remote_addr] [DNS::question type] [domain [DNS::question name] 4]"
+            #Un-comment drop to enable blocking mode
+            #DNS::drop
+            if {$count == $static::maxq} {
+                #only log when we match the first maxq
+                log local2. "DNS Tunnel Suspected - IP: $srcip - $qtype - $DomOrigen"
+            }
             return
         }
     } else {
