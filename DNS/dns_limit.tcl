@@ -24,7 +24,7 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
         #Un-comment below for local GTM logging
         log local2. "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
         #Un-comment below for remote logging
-        ##HSL::send $hsludp "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
+        ##HSL::send $hsludp "<190>,message=Matched_DenyList,src_ip=$srcip,query_type=$qtype,query_name=$DomOrigen\r\n"
         return
     } elseif {[table lookup $key] ne ""} {
         set count [table incr $key]
@@ -36,7 +36,7 @@ if { ([class match $qtype equals TunnelType]) and [DNS::len] > 512 } {
                 #Un-comment below for local GTM logging
                 log local2. "DNS Tunnel Suspected - IP: $srcip - $qtype - $DomOrigen"
                 #Un-comment below for remote logging
-                ##HSL::send $hsludp "Matched DenyList - IP: $srcip - $qtype - $DomOrigen"
+                ##HSL::send $hsludp "<190>,message=DNS_Tunnel_Suspected,src_ip=$srcip,query_type=$qtype,query_name=$DomOrigen\r\n"
             }
             return
         }
