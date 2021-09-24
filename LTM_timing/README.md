@@ -1,3 +1,8 @@
+## server-timings.tcl Notes  
+Apply to virtual server to insert a HTTP response header server-timings when a debug HTTP request header is received.  
+Note: TCL clock clicks -milliseconds can only measure in increments of 1ms, so timing events in sub-millisecond increments does not work.  
+All sub-millisecond timing events are rounded to 1 millisecond.  
+## LTM_event_timing.tcl Notes   
 ### Timing of common iRule Events in milliseconds throughout the lifetime of a TCP session. 
 
 ### Summary provided for noteable milestones. 
