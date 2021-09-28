@@ -44,25 +44,25 @@ if { $debugTiming equals 1 } {
     }
 }
 when HTTP_RESPONSE_RELEASE priority 1000 { 
-#If debugTiming variable is equal to 1, collect timing metrics for this event.    
+#If debugTiming variable is equal to 1, collect timing metrics for this event. If any variable fails to exist because the event did not fire, exit gracefully (catch).      
 if { $debugTiming equals 1 } {
     #Data Processing. Ideally this could be delegated to external system reading these raw variables.
     #Calculate HTTP Request processing time     
-    set request_time [expr { $http_request_release_time - $http_request_start_time } ] 
+    catch { set request_time [expr { $http_request_release_time - $http_request_start_time } ] }
     #Calculate HTTP Response processing time
-    set response_time [expr { $http_response_release_time - $http_response_start_time } ]
+    catch { set response_time [expr { $http_response_release_time - $http_response_start_time } ] }
     #HTTP Request backend processing time
-    set backend_time [expr { $http_response_start_time - $http_request_send } ]
+    catch { set backend_time [expr { $http_response_start_time - $http_request_send } ] } 
 
     #Correct 0ms metrics when timing happened within 1ms. Round 0ms to 1ms. 
-    if { $request_time equals 0 } { incr request_time  }
-    if { $response_time equals 0 } { incr response_time  }
-    if { $backend_time equals 0 } { incr backend_time  }
+    catch { if { $request_time equals 0 } { incr request_time  } } 
+    catch { if { $response_time equals 0 } { incr response_time  } }
+    catch { if { $backend_time equals 0 } { incr backend_time  } }
 
     #Uncomment below line for debug logging:
-    #log local0. "Request time: $request_time, Response time: $response_time, Backend Time: $backend_time, http_request_start_time: $http_request_start_time, http_request_release_time: $http_request_release_time, http_request_send: $http_request_send, http_response_start_time: $http_response_start_time, http_response_release_time: $http_response_release_time" 
+    #catch { log local0. "Request time: $request_time, Response time: $response_time, Backend Time: $backend_time, http_request_start_time: $http_request_start_time, http_request_release_time: $http_request_release_time, http_request_send: $http_request_send, http_response_start_time: $http_response_start_time, http_response_release_time: $http_response_release_time" }
 
     #Insert Server-Timings HTTP header into the HTTP response. Formatting per https://developer.    mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.   
-    HTTP::header insert Server-Timings "f5-request;dur=$request_time, f5-response;dur=$response_time, f5-backend;dur=$backend_time"
+    catch { HTTP::header insert Server-Timings "f5-request;dur=$request_time, f5-response;dur=$response_time, f5-backend;dur=$backend_time" } 
     }
 }
