@@ -1,4 +1,4 @@
-### SSLO Service Transparent Proxy destination port translation
+### SSLO Service Transparent Proxy destination port translation ( "Super Port Remap" ) 
 
 This iRule can be applied to a SSLO Service transparent inline proxy to translate the destination port of ALL traffic to the service device (decrypted and native HTTP). Similar to port remap however it also changes the destination port of traffic to the in-line proxy that is native HTTP.  
 
