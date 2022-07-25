@@ -1,3 +1,16 @@
+## Use v2 for best results. 
+
+Calculates timings more accurately. Also works if OneConnect or HTTP TCP reuse is enabled.  
+
+Expected output:
+```bash
+Jul 25 10:58:03 slot3/13-1-demo info tmm[12606]: Rule /Common/ltm_timing_v2 <HTTP_RESPONSE_RELEASE>: uniqueID=01658764683040489,Start_Client_IP=10.5.20.23,Start_Client_Port=8544,Client_TCP_Handshake=1,Client_SSL_Handshake=1,F5_HTTP_Request_Processing=0,Server_TCP_Handshake=0,Server_SSL_Handshake=2,Pool_HTTP_response_latency=3,F5_HTTP_Response_Processing=0
+Jul 25 10:58:03 slot3/13-1-demo info tmm[12606]: Rule /Common/ltm_timing_v2 <HTTP_RESPONSE_RELEASE>: uniqueID=01658764683040489,HTTP-REUSE,Start_Client_IP=10.5.20.23,Start_Client_Port=8544,F5_HTTP_Request_Processing=0,Pool_HTTP_response_latency=3,F5_HTTP_Response_Processing=0
+Jul 25 10:58:03 slot3/13-1-demo info tmm[12606]: Rule /Common/ltm_timing_v2 <HTTP_RESPONSE_RELEASE>: uniqueID=01658764683040489,HTTP-REUSE,Start_Client_IP=10.5.20.23,Start_Client_Port=8544,F5_HTTP_Request_Processing=1,Pool_HTTP_response_latency=3,F5_HTTP_Response_Processing=0
+Jul 25 10:58:03 slot3/13-1-demo info tmm[12606]: Rule /Common/ltm_timing_v2 <HTTP_RESPONSE_RELEASE>: uniqueID=01658764683040489,HTTP-REUSE,Start_Client_IP=10.5.20.23,Start_Client_Port=8544,F5_HTTP_Request_Processing=0,Pool_HTTP_response_latency=3,F5_HTTP_Response_Processing=0
+Jul 25 10:58:03 slot3/13-1-demo info tmm[12606]: Rule /Common/ltm_timing_v2 <HTTP_RESPONSE_RELEASE>: uniqueID=01658764683040489,HTTP-REUSE,Start_Client_IP=10.5.20.23,Start_Client_Port=8544,F5_HTTP_Request_Processing=0,Pool_HTTP_response_latency=2,F5_HTTP_Response_Processing=0
+```
+
 ## server-timings.tcl Notes  
 Apply to virtual server to insert a HTTP response header server-timings when a debug HTTP request header is received.  
 Note: TCL clock clicks -milliseconds can only measure in increments of 1ms, so timing events in sub-millisecond increments does not work.  
