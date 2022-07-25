@@ -100,48 +100,44 @@ when HTTP_RESPONSE priority 1000 {
 when HTTP_RESPONSE_RELEASE { 
     set http_response_release_time [clock clicks -milliseconds]
 
+    # catch if important stats are missing
     if { ($http_request_release_time equals 0) || ($asm_request_done_time equals 0 ) } {
-    catch { log local0. "Stats Collection error. Request likely blocked or ASM bypassed,uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port]" }
-    return
+        catch { log local0. "Stats Collection error. Request likely blocked or ASM bypassed,uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port]" }
+        return
     }
+
     #moved logging to here to fix HTTP TCP reuse breaking stats in some situations
+    # Log TCP level stats if this is the first http request In this TCP session. 
     if { $http_request_count equals 1 } {
-    catch {
-    set a [expr { $client_accept_time - $flow_init_time } ] ; #Time_spent_in_Client_3WHS
-    set b [expr { $client_ssl_time - $CLIENTSSL_CLIENTHELLO_SEND } ] ; #measure client side ssl handshake time.
-    
-    set c [expr { $asm_request_done_time - $http_request_start_time } ] ; #F5_HTTP_Request_Processing_Request
+        catch {
+        set a [expr { $client_accept_time - $flow_init_time } ] ; #Time_spent_in_Client_3WHS
+        set b [expr { $client_ssl_time - $CLIENTSSL_CLIENTHELLO_SEND } ] ; #measure client side ssl handshake time.
+        set c [expr { $asm_request_done_time - $http_request_start_time } ] ; #F5_HTTP_Request_Processing_Request
+        set d [expr { $server_connect_time - $lb_selected_time } ] ; #Time_spent_in_Server_3WHS
+        set e [expr { $server_ssl_time - $SERVERSSL_CLIENTHELLO_SEND } ] ; #measure server side ssl handshake time.
+        set f [expr { $http_response_start_time - $http_request_release_time } ] ; #Pool_HTTP_response_latency
+        set g [expr { $http_response_release_time - $http_response_start_time } ] ; #F5_HTTP_Response_Processing
 
-    set d [expr { $server_connect_time - $lb_selected_time } ] ; #Time_spent_in_Server_3WHS
-    set e [expr { $server_ssl_time - $SERVERSSL_CLIENTHELLO_SEND } ] ; #measure server side ssl handshake time.
-
-    #TODO:set k [expr { $http_request_release_time - $http_request_release_time } ] ; #Total_Request_process_time. Is this helpful?
-    set f [expr { $http_response_start_time - $http_request_release_time } ] ; #Pool_HTTP_response_latency
-    set g [expr { $http_response_release_time - $http_response_start_time } ] ; #F5_HTTP_Response_Processing
-    
-    log local0. "uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],Client_TCP_Handshake=$a,Client_SSL_Handshake=$b,F5_HTTP_Request_Processing=$c,Server_TCP_Handshake=$d,Server_SSL_Handshake=$e,Pool_HTTP_response_latency=$f,F5_HTTP_Response_Processing=$g"
-    #uncomment below for absolute timings
-    #log local0. "uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,LB_POOL_MEMBER=$lb_poolmember_ip,LB_FAILED_IP=$lb_failmember_ip,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time" 
-    } 
+        log local0. "uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],Client_TCP_Handshake=$a,Client_SSL_Handshake=$b,F5_HTTP_Request_Processing=$c,Server_TCP_Handshake=$d,Server_SSL_Handshake=$e,Pool_HTTP_response_latency=$f,F5_HTTP_Response_Processing=$g"
+        #uncomment below for absolute timings
+        #log local0. "uniqueID=$uniqueID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,LB_POOL_MEMBER=$lb_poolmember_ip,LB_FAILED_IP=$lb_failmember_ip,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time" 
+        } 
 } else {
-    if { ($http_request_release_time equals 0) || ($asm_request_done_time equals 0 ) } {
-    catch { log local0. "Stats Collection error. Request likely blocked or ASM bypassed,uniqueID=$uniqueID,HTTP-REUSE,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port]" }
-    return
+        #Only log http Level stats when this is not the first http Request.
+        catch {
+        set c [expr { $asm_request_done_time - $http_request_start_time } ] ; #F5_HTTP_Request_Processing_Request
+        set f [expr { $http_response_start_time - $http_request_release_time } ] ; #Pool_HTTP_response_latency
+        set g [expr { $http_response_release_time - $http_response_start_time } ] ; #F5_HTTP_Response_Processing
+        log local0. "uniqueID=$uniqueID,HTTP-REUSE,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],F5_HTTP_Request_Processing=$c,Pool_HTTP_response_latency=$f,F5_HTTP_Response_Processing=$g"
+        #uncomment below for absolute timings
+        #log local0. "uniqueID=$uniqueID,HTTP-REUSE,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,LB_POOL_MEMBER=$lb_poolmember_ip,LB_FAILED_IP=$lb_failmember_ip,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time" 
+        }
     }
-    catch {
-    set c [expr { $asm_request_done_time - $http_request_start_time } ] ; #F5_HTTP_Request_Processing_Request
-    set f [expr { $http_response_start_time - $http_request_release_time } ] ; #Pool_HTTP_response_latency
-    set g [expr { $http_response_release_time - $http_response_start_time } ] ; #F5_HTTP_Response_Processing
-
-    log local0. "uniqueID=$uniqueID,HTTP-REUSE,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],F5_HTTP_Request_Processing=$c,Pool_HTTP_response_latency=$f,F5_HTTP_Response_Processing=$g"
-    #uncomment below for absolute timings
-    #log local0. "uniqueID=$uniqueID,HTTP-REUSE,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$flow_init_time,CLIENT_ACCEPTED_START=$client_accept_start_time,CLIENT_ACCEPT_DONE=$client_accept_time,HTTP_REQUEST_START=$http_request_start_time,HTTP_REQUEST_DONE=$http_request_time,ASM_REQUEST_DONE=$asm_request_done_time,LB_SELECTED=$lb_selected_time,LB_FAILED=$lb_failed_time,LB_QUEUED=$lb_queued_time,LB_POOL_MEMBER=$lb_poolmember_ip,LB_FAILED_IP=$lb_failmember_ip,HTTP_REQUEST_SEND=$http_request_send_time,HTTP_REQUEST_RELEASE=$http_request_release_time,SERVER_CONNECTED=$server_connect_time,HTTP_RESPONSE_START=$http_response_start_time,HTTP_RESPONSE_DONE=$http_response_time,HTTP_RESPONSE_RELEASE=$http_response_release_time" 
-    }
-}
 }
 
 when SERVER_CLOSED { 
     set server_closed_time [clock clicks -milliseconds]
+    # log server-side TCP Close information
     catch {
     set serverLifetime [expr { $server_closed_time - $server_connect_time } ] ; #Total_Server_TCP_Lifetime
     log local0. "uniqueID=$uniqueID,LB_POOL_MEMBER=$lb_poolmember_ip,serverLifetime=$serverLifetime,HTTP_Response_Count=$http_response_count"
@@ -149,6 +145,7 @@ when SERVER_CLOSED {
 }
 when CLIENT_CLOSED { 
     set client_closed_time [clock clicks -milliseconds]
+    # log client-side TCP Close information
     catch {
     set i [expr { $client_closed_time - $flow_init_time } ] ; #Total_Client_lifetime
     set clientLifetime [expr { $client_closed_time - $flow_init_time } ] ; #Total_Client_TCP_Lifetime
