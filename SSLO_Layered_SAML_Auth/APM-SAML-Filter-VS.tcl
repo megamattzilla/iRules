@@ -3,6 +3,8 @@
 when RULE_INIT {
     ## User-defined: DEBUG logging flag (1=on, 0=off)
     set static::SSLOAPMFILTERVS 1
+    #Set this to the real LTM+APM VS with SAML access policy applied.
+    set static::SSLOAPMVS "captive-portal"
 }
 when HTTP_REQUEST {
 if { $static::SSLOAPMFILTERVS  } {
@@ -23,7 +25,7 @@ if { [string length $accesssid] > 1 } {
         #When this accesssid is in protected mode, disallow requests that are NOT a POST to the ACS URL
         if { [HTTP::method] == "POST"  &&  [HTTP::uri] == "/saml/sp/profile/post/acs" } {
         if { $static::SSLOAPMFILTERVS  } { log local0. "detected ACS Post" } 
-        virtual captive-portal
+        virtual $static::SSLOAPMVS
         return
     } else {
         #Respond with auth in progress page
@@ -41,7 +43,7 @@ if { [string length $accesssid] > 1 } {
     }
 }
 }
-virtual captive-portal
+virtual virtual $static::SSLOAPMVS
 }
 
 when HTTP_RESPONSE {
