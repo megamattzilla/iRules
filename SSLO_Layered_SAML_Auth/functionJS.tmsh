@@ -1,0 +1,201 @@
+net tunnels tunnel functionJS-tcp {
+    if-index 304
+    profile tcp-forward
+}
+ltm profile http functionJS-http-xp {
+    app-service none
+    defaults-from http-explicit
+    explicit-proxy {
+        dns-resolver ssloGS_global.app/ssloGS-net-resolver
+        tunnel-name functionJS-tcp
+    }
+    proxy-type explicit
+}
+ltm profile client-ssl functionJS-decrypt {
+    alert-timeout indefinite
+    allow-dynamic-record-sizing disabled
+    allow-expired-crl disabled
+    allow-non-ssl enabled
+    app-service none
+    authenticate once
+    authenticate-depth 9
+    bypass-on-client-cert-fail disabled
+    bypass-on-handshake-alert disabled
+    ca-file none
+    cache-size 262144
+    cache-timeout 3600
+    cert-extension-includes { basic-constraints extended-key-usage subject-alternative-name }
+    cert-key-chain {
+        default_0 {
+            cert default.crt
+            key default.key
+        }
+        f5kclab_CA_active_1 {
+            cert f5kclab_CA_active <------change me -------->
+            key f5kclab_CA_active <------change me -------->
+            usage CA
+        }
+    }
+    cert-lifespan 30
+    cert-lookup-by-ipaddr-port disabled
+    cipher-group f5-default
+    ciphers none
+    client-cert-ca none
+    crl none
+    crl-file none
+    data-0rtt disabled
+    defaults-from sslo-default-clientssl
+    destination-ip-blacklist none
+    destination-ip-whitelist none
+    forward-proxy-bypass-default-action intercept
+    generic-alert enabled
+    handshake-timeout 10
+    hostname-blacklist none
+    hostname-whitelist none
+    inherit-ca-certkeychain false
+    inherit-certkeychain false
+    max-active-handshakes indefinite
+    max-aggregate-renegotiation-per-minute indefinite
+    max-renegotiations-per-minute 5
+    maximum-record-size 16384
+    mod-ssl-methods disabled
+    mode enabled
+    notify-cert-status-to-virtual-server disabled
+    ocsp-stapling disabled
+    options { dont-insert-empty-fragments no-tlsv1.3 }
+    peer-cert-mode ignore
+    peer-no-renegotiate-timeout 10
+    proxy-ssl disabled
+    proxy-ssl-passthrough disabled
+    renegotiate-max-record-delay indefinite
+    renegotiate-period indefinite
+    renegotiate-size indefinite
+    renegotiation enabled
+    retain-certificate true
+    secure-renegotiation require
+    server-name none
+    session-mirroring disabled
+    session-ticket disabled
+    session-ticket-timeout 0
+    sni-default false
+    sni-require false
+    source-ip-blacklist none
+    source-ip-whitelist none
+    ssl-forward-proxy enabled
+    ssl-forward-proxy-bypass enabled
+    ssl-forward-proxy-verified-handshake disabled
+    ssl-sign-hash any
+    strict-resume disabled
+    unclean-shutdown disabled
+}
+ltm profile http-proxy-connect functionJS-proxy {
+    app-service none
+    default-state disabled
+    defaults-from sslo-default-http-proxy-connect
+}
+ltm profile server-ssl functionJS-decrypt-server {
+    alert-timeout indefinite
+    allow-expired-crl disabled
+    app-service none
+    authenticate once
+    authenticate-depth 9
+    authenticate-name none
+    bypass-on-client-cert-fail disabled
+    bypass-on-handshake-alert disabled
+    ca-file lab-bundle.crt
+    cache-size 262144
+    cache-timeout 3600
+    cert none
+    chain none
+    cipher-group f5-default
+    ciphers none
+    crl none
+    crl-file none
+    data-0rtt disabled
+    defaults-from sslo-default-serverssl
+    expire-cert-response-control ignore
+    generic-alert enabled
+    handshake-timeout 10
+    key none
+    max-active-handshakes indefinite
+    mod-ssl-methods disabled
+    mode enabled
+    ocsp none
+    options { dont-insert-empty-fragments }
+    peer-cert-mode require
+    proxy-ssl disabled
+    proxy-ssl-passthrough disabled
+    renegotiate-period indefinite
+    renegotiate-size indefinite
+    renegotiation enabled
+    retain-certificate true
+    secure-renegotiation request
+    server-name none
+    session-mirroring disabled
+    session-ticket disabled
+    sni-default false
+    sni-require false
+    ssl-forward-proxy enabled
+    ssl-forward-proxy-bypass enabled
+    ssl-forward-proxy-verified-handshake disabled
+    ssl-sign-hash any
+    strict-resume disabled
+    unclean-shutdown disabled
+    untrusted-cert-response-control ignore
+}
+ltm virtual functionJS-xp {
+    creation-time 2022-12-02:09:19:05
+    destination 10.5.20.24:serverview-asn
+    ip-protocol tcp
+    last-modified-time 2022-12-06:14:37:35
+    mask 255.255.255.255
+    profiles {
+        functionJS-http-xp { }
+        tcp { }
+    }
+    rules {
+        functionJS-in-t-4
+    }
+    serverssl-use-sni disabled
+    source 0.0.0.0/0
+    translate-address enabled
+    translate-port enabled
+    vlans {
+        internal
+    }
+    vlans-enabled
+    vs-index 45
+}
+ltm virtual functionJS-in-t-4 {
+    creation-time 2022-12-02:09:21:13
+    destination 0.0.0.0%0:any
+    ip-protocol tcp
+    last-modified-time 2022-12-06:14:37:35
+    mask any
+    profiles {
+        functionJS-decrypt {
+            context clientside
+        }
+        functionJS-decrypt-server {
+            context serverside
+        }
+        functionJS-proxy { }
+        http { }
+        tcp { }
+    }
+    rules {
+        functionJS-in-t-4
+    }
+    serverssl-use-sni disabled
+    source 0.0.0.0/0
+    source-address-translation {
+        type automap
+    }
+    translate-address disabled
+    translate-port disabled
+    vlans {
+        functionJS-tcp
+    }
+    vlans-enabled
+    vs-index 46
+}
