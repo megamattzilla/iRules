@@ -70,7 +70,7 @@ if { [HTTP::host] equals "example.com" and [HTTP::uri] ends_with "pass" } {
 }
 
 #Send mac users to complete the JS challenge so that we can attempt SAML auth on a request chain that is capable of running JS. 
-if { [string tolower [HTTP::header "User-Agent"]] contains "windows" } {
+if { [string tolower [HTTP::header "User-Agent"]] contains "mac" } {
      if { $static::SSLODEBUG_MAC  } {  log local0. "MAC user detected. Sending GET to functionJS virtual server" }
     virtual $static::functionJSChallenge
     return
