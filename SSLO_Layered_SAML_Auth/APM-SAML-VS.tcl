@@ -1,8 +1,7 @@
-# Made with ❤ by Matt Stovall 12/2022. 
-#More info here https://github.com/megamattzilla/iRules/tree/master/SSLO_Layered_SAML_Auth
 when RULE_INIT {
     ## User-defined: DEBUG logging flag (1=on, 0=off)
     set static::SSLOAPMSAMLVS 1
+    set static::JSCHALLENGEHOST "example.com"
 }
 
 when ACCESS_SESSION_STARTED {
@@ -24,16 +23,29 @@ when ACCESS_POLICY_COMPLETED priority 200 {
     log local0. "client IP [IP::client_addr] access sid is [ACCESS::session sid]"
 }
 
+when HTTP_REQUEST {
+ if { $static::SSLODEBUG_MAC  } {
+   #Log HTTP request when debug logging is enabled. 
+   set LogString "Client [IP::client_addr]:[TCP::client_port] -> [HTTP::host][HTTP::uri]"
+   log local0. "============================================="
+   log local0. "$LogString (request)"
+   foreach aHeader [HTTP::header names] {
+      log local0. "$aHeader: [HTTP::header value $aHeader]"
+   }
+   log local0. "============================================="
+}
+}
+
 when HTTP_RESPONSE_RELEASE {
 
 if { $static::SSLODEBUG_MAC  } { 
     #Log HTTP response before its transmitted client-side. After most F5 modules. 
-    log local0. "============================================="
-    log local0. "$LogString (response) - status: [HTTP::status]"
-    foreach aHeader [HTTP::header names] {
-    log local0. "$aHeader: [HTTP::header value $aHeader]"
-   }
    log local0. "============================================="
+   log local0. "$LogString (response) - status: [HTTP::status]"
+   foreach aHeader [HTTP::header names] {
+      log local0. "$aHeader: [HTTP::header value $aHeader]"
+   }
+   log local0. "============================================="  
 }
 #Fix final redirect using base64 we saved at the front door VS previosly. 
     if { [HTTP::header "Location"] equals "/vdesk/policy_done.php3?"  }{
