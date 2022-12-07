@@ -43,7 +43,7 @@ if { [string length $accesssid] > 1 } {
     }
 }
 }
-virtual virtual $static::SSLOAPMVS
+virtual $static::SSLOAPMVS
 }
 
 when HTTP_RESPONSE {
