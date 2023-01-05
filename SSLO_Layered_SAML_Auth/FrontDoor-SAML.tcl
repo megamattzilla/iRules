@@ -15,6 +15,8 @@ set static::prod_captive_sslo "sslo_saml.app/sslo_saml-xp-4"
 #Specify name for SAML JS Challenge virtual server 
 set static::functionJSChallenge "functionJS-xp"
 
+#Specify keyword for OS detection  
+set static::detectOSKeyword "mac"
 
 ###User-Edit Variables end###
 }
@@ -69,12 +71,28 @@ if { [HTTP::host] equals "example.com" and [HTTP::uri] ends_with "pass" } {
     #End if statement when URL is example.com/base64/pass 
 }
 
+#Check if SAML should be disabled for this client IP
+set samlFallback [table lookup -notouch -subtable [IP::client_addr] samlFallback]
+ if { $static::SSLODEBUG_MAC  } {  log local0. "samlFallback is $samlFallback"}
+
 #Send mac users to complete the JS challenge so that we can attempt SAML auth on a request chain that is capable of running JS. 
-if { [string tolower [HTTP::header "User-Agent"]] contains "mac" } {
+if { [string tolower [HTTP::header "User-Agent"]] contains $static::detectOSKeyword and !($samlFallback == 1) } {
      if { $static::SSLODEBUG_MAC  } {  log local0. "MAC user detected. Sending GET to functionJS virtual server" }
     virtual $static::functionJSChallenge
     return
     
 }
+
+#If no HTTP request header User-Agent is present- do something here. 
+#In this example, treat No-user agent as a possible Safari CONNECT which does not use User-Agent on CONNECT tunnel. 
+if { !([HTTP::header exists "User-Agent"]) and !($samlFallback == 1) } {
+     if { $static::SSLODEBUG_MAC  } {  log local0. "No User-Agent detected. Sending GET to functionJS virtual server" }
+    virtual $static::functionJSChallenge
+    return
+}
+
+#Default action here for no user-agent match
+virtual sslo_noAuth.app/sslo_noAuth-xp-4
+log local0. "DEFAULT TO NO AUTH" 
 
 }
