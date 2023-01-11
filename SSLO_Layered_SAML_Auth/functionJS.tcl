@@ -32,6 +32,15 @@ if { $static::SsloDebugFunctionJS ==1 } {
  log local0. "ConnFlow ([IP::client_addr]:[TCP::client_port]-[IP::local_addr]:[TCP::local_port])"
 }
 
+#Check if this is request chain that has recently completed SAML auth. Sub authstatus # with your selection for captive portal/SAML. 
+if { [table lookup -subtable [IP::client_addr] authstatus] == 5 } {
+    log local0. "Already authenticated client detected. THis can happen on the last HTTP request of a HTTP chain that was recently authenticated."
+    #Set a new variable with the original URL (not base64).
+    set originalURL $scheme://[HTTP::host][HTTP::uri]
+    #Respond to this TCP re-used request with a redirect to the same page on a new TCP session to go back in through the front door logic.  
+    HTTP::respond 301 "Location" $originalURL "Connection" Close "Cache-Control" no-store
+}
+
 #Now that CONNECT tunnel has a chance to establish on in-t-4 virtual, check the request headers for user agent match.
 #If we dont have a user agent match to perform SAML, redirect the request back to the original page. 
 #we specify connection close so that the browser will issue a new connection to the front door.
