@@ -58,17 +58,17 @@ switch $authlookup  {
 
 
 #Check for HTTP request chain that has passed the JS challange and should be sent to captive portal to complete SAML auth. 
-if { [HTTP::host] equals "example.com" and [HTTP::uri] ends_with "pass" } {
+if { [HTTP::host] equals "example.com" and [HTTP::path] equals "/pass" } {
     #Clear any existing base64 URLs
     table delete -subtable "[IP::client_addr]" originalURLbase64
-    #Extract base64 of original web request and save it to a table to recall later for final redirect. 
-    table set -subtable "[IP::client_addr]" originalURLbase64 [lindex [split [HTTP::uri] "/" ] 3 ]
+    #Extract base64 of original web request and save it to a table to recall later for final redirect.
+    table set -subtable "[IP::client_addr]" originalURLbase64 [string trimleft [HTTP::query] url=]
     #Direct this request to SAML enabled SSLO topology to start SAML auth proccess. 
     virtual $static::prod_captive_sslo
     if { $static::SSLODEBUG_MAC  } {  log local0. "PASSED JS - IP [IP::client_addr] sent to VS captive portal" }
     return
-    
-    #End if statement when URL is example.com/base64/pass 
+
+    #End if statement when URL is example.com/pass?url={{base64}} 
 }
 
 #Check if SAML should be disabled for this client IP

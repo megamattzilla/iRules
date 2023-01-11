@@ -59,7 +59,7 @@ if { !([string tolower [HTTP::header "User-Agent"]] contains $static::detectOSKe
 catch { set customData [subst {
 <html>
   <head>
-    <meta http-equiv="refresh" content="0;url=http://$static::JSCHALLENGEHOST/$base64oforiginalURL/pass" />
+    <meta http-equiv="refresh" content="0;url=http://$static::JSCHALLENGEHOST/pass?url=$base64oforiginalURL" />
     <title></title>
   </head>
  <body></body>
