@@ -11,15 +11,24 @@ table set -subtable "[IP::client_addr]" accesssid [ACCESS::session sid] 900
 }
 when ACCESS_ACL_DENIED {
 #if APM session fails for any reason remove accesssid from table. 
-table delete -subtable "[IP::client_addr]" accesssid
+set apmip [ACCESS::session data get "session.user.clientip"]
+table delete -subtable $apmip accesssid
+table delete -subtable $apmip authstatus
+table lookup -subtable $apmip protectedMode
+log local0. "client IP $apmip purged table data"
 }
 when ACCESS_SESSION_CLOSED {
 #if APM session fails for any reason remove accesssid from table. 
-table delete -subtable "[IP::client_addr]" accesssid
+set apmip [ACCESS::session data get "session.user.clientip"]
+table delete -subtable $apmip accesssid
+table delete -subtable $apmip authstatus
+table lookup -subtable $apmip protectedMode
+log local0. "client IP $apmip purged table data"
 }
 
 when ACCESS_POLICY_COMPLETED priority 200 {
-    table set -subtable "[IP::client_addr]" authstatus 5 $static::prod_idle_sec_timeout
+    table delete -subtable "[IP::client_addr]" authstatus
+    table set -subtable "[IP::client_addr]" authstatus 5 900
     log local0. "client IP [IP::client_addr] access sid is [ACCESS::session sid]"
 }
 
