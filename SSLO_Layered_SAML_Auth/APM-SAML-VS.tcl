@@ -27,9 +27,14 @@ log local0. "client IP $apmip purged table data"
 }
 
 when ACCESS_POLICY_COMPLETED priority 200 {
+#Check if APM was able to identify a username
+set username 0 
+catch { set username [ACCESS::session data get "session.logon.last.username"] } 
+if { [string length $username ] > 1 } {
     table delete -subtable "[IP::client_addr]" authstatus
     table set -subtable "[IP::client_addr]" authstatus 5 900
     log local0. "client IP [IP::client_addr] access sid is [ACCESS::session sid]"
+}
 }
 
 when HTTP_REQUEST {

@@ -63,12 +63,36 @@ if { [HTTP::host] equals "example.com" and [HTTP::path] equals "/pass" } {
     table delete -subtable "[IP::client_addr]" originalURLbase64
     #Extract base64 of original web request and save it to a table to recall later for final redirect.
     table set -subtable "[IP::client_addr]" originalURLbase64 [string trimleft [HTTP::query] url=]
+        
+    #check if APM session ID has been assigned to this user/IP. 
+    #Ths is common if iRule authstatus is cleared but APM has a session established.     
+    catch { set accesssid [table lookup -subtable [IP::client_addr] accesssid] } 
+    #if $accesssid exists
+    if { [string length $accesssid] > 3 } {
+        #check APM session for success (found username)
+        set username [ACCESS::session data get -sid $accesssid "session.logon.last.username"]
+        if { [string length $username ] > 3 } {
+            #valid APM username detected. Dont pass JS challenge URL to APM. Set authstatus # to success SAML.  
+            table delete -subtable "[IP::client_addr]" authstatus
+            table set -subtable "[IP::client_addr]" authstatus 5 900
+            set originalURL [b64decode [table lookup -subtable [IP::client_addr] originalURLbase64]]
+            HTTP::respond 301 "Location" $originalURL "Connection" Close "Cache-Control" no-store
+            return
+        } else {
+        #If APM session is established but no username is found, still send this traffic to APM captive portal. 
+        #Direct this request to SAML enabled SSLO topology to start SAML auth proccess. 
+        virtual $static::prod_captive_sslo
+        if { $static::SSLODEBUG_MAC  } {  log local0. "PASSED JS - IP [IP::client_addr] sent to VS captive portal" }
+        return
+        }
+    } else { 
     #Direct this request to SAML enabled SSLO topology to start SAML auth proccess. 
     virtual $static::prod_captive_sslo
     if { $static::SSLODEBUG_MAC  } {  log local0. "PASSED JS - IP [IP::client_addr] sent to VS captive portal" }
     return
 
     #End if statement when URL is example.com/pass?url={{base64}} 
+}
 }
 
 #Check if SAML should be disabled for this client IP
