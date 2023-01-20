@@ -17,13 +17,20 @@ table delete -subtable $apmip authstatus
 table lookup -subtable $apmip protectedMode
 log local0. "client IP $apmip purged table data"
 }
-when ACCESS_SESSION_CLOSED {
-#if APM session fails for any reason remove accesssid from table. 
-set apmip [ACCESS::session data get "session.user.clientip"]
-table delete -subtable $apmip accesssid
-table delete -subtable $apmip authstatus
-table lookup -subtable $apmip protectedMode
-log local0. "client IP $apmip purged table data"
+
+when ACCESS_POLICY_AGENT_EVENT { 
+if { [ACCESS::policy agent_id] eq "42" } {
+#Request is coming into APM Captive portal SSLO topology without completing JS challenge. 
+#Delete iRule table data to force next connection to go through the iRule JS challenge. 
+log local0. "BEFORE authstatus: [table lookup -subtable "[IP::client_addr]" authstatus ]"
+catch { table delete -subtable "[IP::client_addr]" authstatus } 
+log local0. "AFTER authstatus: [table lookup -subtable "[IP::client_addr]" authstatus ]"
+catch { table delete -subtable "[IP::client_addr]" samlFallback } 
+catch { table delete -subtable "[IP::client_addr]" noUaAttempt } 
+catch { set accesssid [table lookup -subtable "[IP::client_addr]" accesssid] } 
+catch { table delete -subtable "$accesssid" protectedMode }
+log local0. "Client IP: [IP::client_addr] Detected stale iRule session data. Clearing iRule session data"
+}
 }
 
 when ACCESS_POLICY_COMPLETED priority 200 {
