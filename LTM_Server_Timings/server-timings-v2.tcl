@@ -57,16 +57,20 @@ if { [HTTP::header value "X-Enable-Server-Timing"] equals 1 } {
     set debugTiming 1
     incr http_request_count
     set HTTP_REQUEST [clock clicks -milliseconds]
-    set virtual_server [virtual name]
-    #Collect helpful HTTP Request values. Uses $http_string_limit to prevent large string abuse. 
-    set http_host [string range [HTTP::host] 0 $http_string_limit]
-    set http_uri [string range [HTTP::uri] 0 $http_string_limit]
-    set http_method [string range [HTTP::method] 0 $http_string_limit]
-    if { [HTTP::header Content-Length] > 0 } then {
-        set req_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
-    } else {
-        set req_length 0
-  }
+    
+    
+    #If logging is enabled, collect helpful HTTP Request values. Uses $http_string_limit to prevent large string abuse. 
+    if { $remote_log equals 1 or $local_log equals 1 } {
+        set virtual_server [virtual name]
+        set http_host [string range [HTTP::host] 0 $http_string_limit]
+        set http_uri [string range [HTTP::uri] 0 $http_string_limit]
+        set http_method [string range [HTTP::method] 0 $http_string_limit]
+        if { [HTTP::header Content-Length] > 0 } then {
+            set req_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
+        } else {
+            set req_length 0
+        }
+    }
 } else {
     #Exit gracefully if request does not contain required server timing enable header. 
     return 
@@ -96,17 +100,17 @@ when HTTP_RESPONSE priority 10 {
     catch {
     if { $debugTiming equals 1 } {
         set HTTP_RESPONSE [clock clicks -milliseconds] 
-        #Collect helpful HTTP Response values
-        set http_status [string range [HTTP::status] 0 $http_string_limit]
-        set node [string range [IP::server_addr] 0 $http_string_limit]
-        if { [HTTP::header Content-Length] > 0 } then {
-            set res_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
-        } else {
-            set res_length 0
+        #If logging is enabled, collect helpful HTTP Response values. Uses $http_string_limit to prevent large string abuse. 
+        if { $remote_log equals 1 or $local_log equals 1 } {
+            set http_status [string range [HTTP::status] 0 $http_string_limit]
+            set node [string range [IP::server_addr] 0 $http_string_limit]
+            if { [HTTP::header Content-Length] > 0 } then {
+                set res_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
+            } else {
+                set res_length 0
+            }
         }
-        } 
-    
-    
+    }
     } 
 }
 when HTTP_RESPONSE_RELEASE {
