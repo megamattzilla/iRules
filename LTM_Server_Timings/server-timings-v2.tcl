@@ -15,7 +15,8 @@ catch {
     set local_log 1 ; #1 = enabled, 0 = disabled !MONITOR CPU AFTER ENABLING!
     set remote_log_pool logging-pool ; #Name of LTM pool to use for remote logging servers 
     set remote_log_protocol UDP ; #UDP or TCP
-    set http_string_limit 100 ; #How many characters to collect from HTTP values like HTTP host, URI. 
+    set string_limit 100 ; #How many characters to collect from user-supplied HTTP values like HTTP host, version, referrer. 
+    set uri_string_limit 600 ; #How many characters to collect from HTTP value of URI
     ###User-Edit Variables end###
 
     #Don't edit these system variables 
@@ -59,14 +60,19 @@ if { [HTTP::header value "X-Enable-Server-Timing"] equals 1 } {
     set HTTP_REQUEST [clock clicks -milliseconds]
     
     
-    #If logging is enabled, collect helpful HTTP Request values. Uses $http_string_limit to prevent large string abuse. 
+    #If logging is enabled, collect helpful HTTP Request values. Uses $string_limit to prevent large string abuse. 
     if { $remote_log equals 1 or $local_log equals 1 } {
         set virtual_server [virtual name]
-        set http_host [string range [HTTP::host] 0 $http_string_limit]
-        set http_uri [string range [HTTP::uri] 0 $http_string_limit]
-        set http_method [string range [HTTP::method] 0 $http_string_limit]
+        set http_host [string range [HTTP::host] 0 $string_limit]
+        set http_uri [string range [HTTP::uri] 0 $uri_string_limit]
+        set http_method [string range [HTTP::method] 0 $string_limit]
+        set http_referrer [string range [HTTP::header "Referer"] 0 $string_limit]
+        set http_content_type [string range [HTTP::header "Content-Type"] 0 $string_limit]
+        set http_user_agent [string range [HTTP::header "User-Agent"] 0 $string_limit]
+        set http_version [string range [HTTP::version] 0 $string_limit]
+        set vip [IP::local_addr]
         if { [HTTP::header Content-Length] > 0 } then {
-            set req_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
+            set req_length [string range [HTTP::header "Content-Length"] 0 $string_limit]
         } else {
             set req_length 0
         }
@@ -82,7 +88,10 @@ when ASM_REQUEST_DONE {
     catch { if { $debugTiming equals 1 } { set ASM_REQUEST_DONE [clock clicks -milliseconds] } }
 }
 when LB_SELECTED {
-    catch { if { $debugTiming equals 1 } { set LB_SELECTED [clock clicks -milliseconds] } } 
+    catch { 
+    if { $debugTiming equals 1 } { set LB_SELECTED [clock clicks -milliseconds] } 
+    set pool [LB::server]
+    } 
 }
 when SERVER_CONNECTED {
     catch { if { $debugTiming equals 1 } { set SERVER_CONNECTED [clock clicks -milliseconds] } }
@@ -100,12 +109,11 @@ when HTTP_RESPONSE priority 10 {
     catch {
     if { $debugTiming equals 1 } {
         set HTTP_RESPONSE [clock clicks -milliseconds] 
-        #If logging is enabled, collect helpful HTTP Response values. Uses $http_string_limit to prevent large string abuse. 
+        #If logging is enabled, collect helpful HTTP Response values. Uses $string_limit to prevent large string abuse. 
         if { $remote_log equals 1 or $local_log equals 1 } {
-            set http_status [string range [HTTP::status] 0 $http_string_limit]
-            set node [string range [IP::server_addr] 0 $http_string_limit]
+            set http_status [string range [HTTP::status] 0 $string_limit]
             if { [HTTP::header Content-Length] > 0 } then {
-                set res_length [string range [HTTP::header "Content-Length"] 0 $http_string_limit]
+                set res_length [string range [HTTP::header "Content-Length"] 0 $string_limit]
             } else {
                 set res_length 0
             }
@@ -150,14 +158,11 @@ when HTTP_RESPONSE_RELEASE {
         }   
 
         if { $remote_log equals 1 } { 
-            HSL::send $hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"False\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",Client_TCP_Handshake=\"$a\",Client_SSL_Handshake=\"$b\",F5_HTTP_Request_Processing=\"$c\",Server_TCP_Handshake=\"$d\",Server_SSL_Handshake=\"$e\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",pool_node=\"$node\",virtual_server=\"$virtual_server\"" 
+            HSL::send $hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$a\",cTLS=\"$b\",f5Req=\"$c\",sTCP=\"$d\",sTLS=\"$e\",poolRes=\"$f\",f5Res=\"$g\",overhead=\"$overhead\",uri=\"$http_uri\",host=\"$http_host\",method=\"$http_method\",reqLength=\"$req_length\",statusCode=\"$http_status\",resLength=\"$res_length\",vs=\"$virtual_server\",pool=\"$pool\",referrer=\"$http_referrer\",cType=\"$http_content_type\",userAgent=\"$http_user_agent\",httpv=\"$http_version\",vip=\"$vip\"" 
         } 
         
         if { $local_log equals 1 } { 
-            #uncomment below for relative timing in /var/log/ltm 
-            log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"False\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",Client_TCP_Handshake=\"$a\",Client_SSL_Handshake=\"$b\",F5_HTTP_Request_Processing=\"$c\",Server_TCP_Handshake=\"$d\",Server_SSL_Handshake=\"$e\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",pool_node=\"$node\",virtual_server=\"$virtual_server\""
-            #uncomment below for absolute timings in /var/log/ltm 
-            #log local0. "tcpID=$tcpID,TCP_REUSE=False,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$FLOW_INIT,CLIENT_ACCEPTED_START=$CLIENT_ACCEPTED,CLIENT_ACCEPT_DONE=$CLIENT_ACCEPTED,HTTP_REQUEST_START=$HTTP_REQUEST,ASM_REQUEST_DONE=$ASM_REQUEST_DONE,LB_SELECTED=$LB_SELECTED,HTTP_REQUEST_RELEASE=$HTTP_REQUEST_RELEASE,SERVER_CONNECTED=$SERVER_CONNECTED,HTTP_RESPONSE_START=$HTTP_RESPONSE,HTTP_RESPONSE_RELEASE=$HTTP_RESPONSE_RELEASE,overhead=$overhead" 
+            log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$a\",cTLS=\"$b\",f5Req=\"$c\",sTCP=\"$d\",sTLS=\"$e\",poolRes=\"$f\",f5Res=\"$g\",overhead=\"$overhead\",uri=\"$http_uri\",host=\"$http_host\",method=\"$http_method\",reqLength=\"$req_length\",statusCode=\"$http_status\",resLength=\"$res_length\",vs=\"$virtual_server\",pool=\"$pool\",referrer=\"$http_referrer\",cType=\"$http_content_type\",userAgent=\"$http_user_agent\",httpv=\"$http_version\",vip=\"$vip\"" 
         } 
 } else {
         #Only log request Level stats when this is not the first http Request in the TCP session.
@@ -172,14 +177,11 @@ when HTTP_RESPONSE_RELEASE {
         } 
         
         if { $remote_log equals 1 } { 
-            HSL::send $hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"True\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",F5_HTTP_Request_Processing=\"$c\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",pool_node=\"$node\",virtual_server=\"$virtual_server\"" 
+            HSL::send $hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"True\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",F5_HTTP_Request_Processing=\"$c\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",virtual_server=\"$virtual_server\",pool=\"$pool\",referrer=\"$http_referrer\",cType=\"$http_content_type\",userAgent=\"$http_user_agent\",httpv=\"$http_version\",vip=\"$vip\"" 
         }
         
         if { $local_log equals 1 } { 
-            #uncomment below for relative timing in /var/log/ltm 
-            log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"True\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",F5_HTTP_Request_Processing=\"$c\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",pool_node=\"$node\",virtual_server=\"$virtual_server\""
-            #uncomment below for absolute timings in /var/log/ltm 
-            #log local0. "tcpID=$tcpID,TCP_REUSE=True,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port],FLOW_INIT=$FLOW_INIT,CLIENT_ACCEPTED_START=$CLIENT_ACCEPTED,CLIENT_ACCEPT_DONE=$CLIENT_ACCEPTED,HTTP_REQUEST_START=$HTTP_REQUEST,ASM_REQUEST_DONE=$ASM_REQUEST_DONE,HTTP_REQUEST_RELEASE=$HTTP_REQUEST_RELEASE,SERVER_CONNECTED=$SERVER_CONNECTED,HTTP_RESPONSE_START=$HTTP_RESPONSE,HTTP_RESPONSE_RELEASE=$HTTP_RESPONSE_RELEASE,overhead=$overhead" 
+            log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$tcpID\",TCP_REUSE=\"True\",Start_Client_IP=\"[IP::client_addr]\",Start_Client_Port=\"[TCP::client_port]\",F5_HTTP_Request_Processing=\"$c\",Pool_HTTP_response_latency=\"$f\",F5_HTTP_Response_Processing=\"$g\",overhead=\"$overhead\",http.target=\"$http_uri\",http.host=\"$http_host\",http_method=\"$http_method\",http.request_content_length=\"$req_length\",http.status_code=\"$http_status\",http.response_content_length=\"$res_length\",virtual_server=\"$virtual_server\",pool=\"$pool\",referrer=\"$http_referrer\",cType=\"$http_content_type\",userAgent=\"$http_user_agent\",httpv=\"$http_version\",vip=\"$vip\"" 
         }
         }
         
