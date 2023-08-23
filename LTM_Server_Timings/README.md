@@ -11,6 +11,18 @@
 - If this is the first HTTP request in a given TCP/TLS session, additional connection-based metrics will be included like tcp and ssl handshake time.
 - All time is in milliseconds. A value of 0 means sub-millisecond. It is not currently feasible to collect sub-milliseconds in current TCL framework. 
 
+#### Version History
+
+#### v3
+Issues Fixed: 
+- In version 2 the log fields were shortened but only for the first HTTP request in a TCP session. Now all HTTP request logs are following the shortened format.
+
+New Features:  
+- Changed HTTP response header name `Server-Timings` to `Server-Timing`
+- Detect when another iRule has issued a HTTP::respond action and trigger a log to be generated with partial stats
+    - A log field `iRuleBlock= True` will be added to these logs otherwise this field is omitted. 
+- Detect when ASM has blocked a request and trigger a log to be generated with partial stats
+    - A log field `asmBlock= True` will be added to these logs otherwise this field is omitted.
 
 #### Example Output: 
 
@@ -50,3 +62,4 @@ Response HTTP Headers:
 ```json
 Server-Timings: waf, overhead;dur=2, origin;dur=1, client-ssl;dur=99, server-ssl;dur=32, client-tcp;dur=31, server-tcp;dur=0
 ```
+The response HTTP Header will be inserted as a new header regardless if there is any existing server-timings headers supplied by the pool members. RFC https://www.w3.org/TR/server-timing/#examples 
