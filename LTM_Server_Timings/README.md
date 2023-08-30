@@ -13,6 +13,17 @@
 
 #### Version History
 
+#### v4
+
+New Features:  
+- Added iRule variable `enableLogWithoutHeader` to enable logging for all HTTP requests and responses regardless of HTTP request header X-Enable-Server-Timing being present. The log local and remote variables still need to be enabled in order for the relevant logging to take place. 
+- Added iRule variable `serverTimingHeaderName` to specify the HTTP response header name to be inserted versus a static name.
+- Added iRule variables `iruleBlockResponseCode` and `asmBlockResponseCode` to append an HTTP status code to the iRule and ASM blocked logs. 
+- Added iRule variables `clientEnableTimingHeaderName` and `clientEnableTimingHeaderValue` Client HTTP header name and value that triggers debug timing to take place. 
+
+Issues Fixed: 
+- Renamed user editable variable names to camel case. 
+
 #### v3
 Issues Fixed: 
 - In version 2 the log fields were shortened but only for the first HTTP request in a TCP session. Now all HTTP request logs are following the shortened format.
