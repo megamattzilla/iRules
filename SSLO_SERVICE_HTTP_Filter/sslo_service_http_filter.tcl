@@ -1,3 +1,6 @@
+when CLIENT_ACCEPTED {
+    set default_pool [LB::server pool]
+} 
 when HTTP_REQUEST priority 200 {
 ###User-Edit Variables start###
 #Specify name for in-line service re-entry virtual server. Example: ssloS_exampleService-D-0-t-4
@@ -14,10 +17,12 @@ if { ([HTTP::method] == "POST" ) || ([HTTP::method] == "PUT" ) }  {
         log local0. "Bypassing in-line service for IP [IP::client_addr] HTTP [HTTP::host] [HTTP::uri] [HTTP::method] content-length [HTTP::header "content-length"]"
         #Disable in-line service by directing traffic to the re-entry virtual server which bypasses the entry virtual server for this service. 
         virtual $static::bypassService
-        }
+        } else {
+        pool $default_pool
+        return }
 } else {
 #If HTTP request method is NOT POST or PUT do something here.
-log local0. "Fallback: Bypassing in-line service for IP [IP::client_addr] HTTP [HTTP::host] [HTTP::uri] [HTTP::method]"
+#log local0. "Fallback: Bypassing in-line service for IP [IP::client_addr] HTTP [HTTP::host] [HTTP::uri] [HTTP::method]"
 #Disable in-line service by directing traffic to the re-entry virtual server which bypasses the entry virtual server for this service.
 virtual $static::bypassService 
 }
