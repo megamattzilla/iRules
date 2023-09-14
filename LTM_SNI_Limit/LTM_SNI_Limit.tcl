@@ -33,7 +33,7 @@ catch {
         log local0. "Rejecting SNI! SNI: $SNI_Name: Exceeds: $sniLimit over $sniWindow seconds"
         reject
     } else { 
-        #Start counting SNI count by fqdn. 
+        #Start counting SNI by fqdn. 
         set random [TMM::cmp_unit][clock clicks] 
         table set -notouch -subtable "$SNI_Name" $random "" $sniWindow $sniWindow
         return
