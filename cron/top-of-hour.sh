@@ -14,6 +14,6 @@
 30 23 1-31/2 * * mv -f /shared/tmp/cpu_logger-top.out /shared/tmp/cpu_logger-top.out.1
 30 23 1-31/2 * * mv -f /shared/tmp/cpu_logger-host_info_stat.out /shared/tmp/cpu_logger-host_info_stat.out.1
 30 23 1-31/2 * * mv -f /shared/tmp/cpu_logger-iostat.out /shared/tmp/cpu_logger-iostat.out.1
-#End of lines for SR 487902
+
 
 ### End of lines for SR 487902 Crontab 
