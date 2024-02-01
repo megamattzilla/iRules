@@ -1,5 +1,5 @@
 # Overview
-### Generate custom metrics in iRule events and deliver the data to a prometheus endpoint (virtual server)!!!!!
+### Generate custom prometheus metrics in iRule events!!
 
 This demo will utilize two iRules. 
 
@@ -7,7 +7,10 @@ This demo will utilize two iRules.
     - The custom metric f5_fqdn is the # of times a dynamic HTTP::host value has been requested. There are three labels on the metric that provide the HTTP::host value, the clientSSL profile, and name of the LTM virtual server. 
 - One iRule to listen for prometheus scrape requests. Upon receiving a request, the iRule will query the data in the iRule session table and deliver the data in a compatible format for prometheus. 
 
-Example output from the prometheus_response_generator iRule:
+Example output from the prometheus_response_generator iRule (in Prometheus):
+![Alt text](2024-02-01_13-04-14.png)
+  
+Example HTTP response from the prometheus_response_generator iRule:
 ```
 * HTTP 1.0, assume close after body
 < HTTP/1.0 200 OK
@@ -26,11 +29,17 @@ f5_fqdn{virtualServer="/Common/asm-demo-https",sslProfile="/Common/example.f5kc.
 
 To setup these iRules:
 1. Place the iRule `prometheus_data_collector.tcl` on an existing virtual server with an HTTP and SSL profile where you would like to start collecting metrics.
+  
 2.  Create a net-new virtual server `prometheus_response_generator` with a default HTTP profile and SSL profile of your choice on a unique port such as 9090.
+  
 3. Place the iRule `prometheus_response_generator.tcl` on virtual server `prometheus_response_generator` you just created.
+  
 4. Edit variables in  `prometheus_data_collector.tcl` and `prometheus_response_generator.tcl` if desired.
  - `prometheus_response_generator.tcl` by default will limit the dynamic collection to 1,000 FQDNs.
  - `prometheus_response_generator.tcl` by default will NOT require authentication. This can be enabled by using `useAuthentiation` with a value of 1. Also set `basicAuthSHA256` to your required SHA256 value. 
+
+5. Start scraping the new virtual server `prometheus_response_generator` IP and port in prometheus as a scrape target.
+ - If you are already scraping the Big-IP management interface with Telemetry Streaming prometheus pull consumer configured, this will be a second scrape job for these custom metrics. 
 
 # Updates 
 
