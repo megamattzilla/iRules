@@ -1,8 +1,32 @@
-### ltm_http_log_remote.tcl
-Collects HTTP metrics and transmits per-request loggs to a high speed logging destination. 
+# Overview 
+This iRule logs HTTP request and response header data that is readily available as variables to a remote TCP/UDP log server. 
+    
+- All code is wrapped in catch statements so that any failure will be non-blocking.  
+- If making changes to the code, please ensure its still covered by the catch statements.  
+- A prefix of z1_ has been added to each variable to make them globally unique.  
 
-Example log:  
-u.service.name="bigip",service.namespace="",service.instance.id="",http.client_ip="10.5.5.2",net.host.ip="10.5.20.17",http_method="GET",http.host="10.5.20.17:80",http.target="/",http_url="10.5.20.17:80/",http.flavor="1.1",http.user_agent="curl/7.64.1",http.content_type="",http.referrer="",req_start_time="1626751119312",virtual_server="/Common/maintenance_pool 0",http.request_content_length="0",res_start_time="1626751119313",node="10.5.5.20",node_port="80",http.status_code="200",http.response_content_length="24"  
+### Requirements:
+1. http and client-ssl profile attached to existing virtual server.
+2. LTM pool created containing your UDP or TCP remote log servers 
+3. Edit the variables inside `###User-Edit Variables` with your LTM logging pool name and protocol
 
-### Prerequisite
-Create an LTM pool with your log server IP and port defined. This example uses a ltm pool named `logging-pool`. 
+Example log:
+```
+hostname="15-1-demo.f5kc.com", 
+cIP="10.5.5.3", 
+cPort="34276", 
+uri="/", 
+host="matt.f5.com", 
+method="HEAD", 
+reqLength="0", 
+statusCode="200", 
+resLength="612", 
+vs="/Common/asm-demo-https", 
+pool="/Common/nginx-https 10.6.0.100 443", 
+referrer="", 
+cType="", 
+userAgent="curl/8.1.2", 
+httpv="1.1", 
+vip="10.6.1.10", 
+clientsslprofile="/Common/example.f5kc.lab.local"
+```
