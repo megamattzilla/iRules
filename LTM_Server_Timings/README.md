@@ -13,6 +13,14 @@
 
 #### Version History
 
+#### v5
+
+New Features:  
+- Modified all variables with prefix `st_` to decrease probability of overlapping names with other iRules. 
+
+Issues Fixed: 
+- Requests blocked by ASM and iRules were still getting a server-timing response header inserted with erroneous values. Now blocked requests will not have server-timings response header as expected. 
+
 #### v4
 
 New Features:  
