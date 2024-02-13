@@ -1,8 +1,8 @@
-# Made with ❤ by Matt Stovall 2/2024.
+# Made with care by Matt Stovall 2/2024.
 #This iRule logs HTTP request and response header data that is readily available. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. A prefix of z1_ has been added to each variable to make them globally unique. 
 #See https://github.com/megamattzilla/iRules/blob/master/LTM_Logging/README.md for more details
-#Version 1.0
+#Version 1.1
 #Requirements: http and client-ssl profile attached to virtual server. 
 
 when CLIENT_ACCEPTED  {
