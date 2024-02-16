@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 2/2024.
-## Version 1.3
+## Version 2.0
 ## This iRule: 
 ##  1.   collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request
 ##  2.   makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/?url=${is_httpHost})  
@@ -15,7 +15,7 @@
 ##  3. Configure those sideband pool members to reply with the Bypass/Intercept strings this iRule is looking for.   
 
 when HTTP_REQUEST priority 200 { 
-
+catch {
     ###User-Edit Variables start###
     set is_sidebandPool "mcafee-api" ; #LTM pool containing nodes to send the sideband HTTP request
     set is_debugLogging 1 ; #0 = Disabled, 1 = Enabled
@@ -24,6 +24,7 @@ when HTTP_REQUEST priority 200 {
     set is_cachePurgeHeader "X-SSLO-URL-PURGE" ; #HTTP request header name that will purge the cache for a given FQDN
     set is_sslBypassVirtualServer "sslo_noAuth.app/sslo_noAuth-xp-4" ; #Virtual server path/name to send explicit proxy requests that should NOT be SSL intercepted. 
     set is_sidebandHostHeader "sideband.example.com" ; #HTTP host header value to use in the sideband call.
+    set is_sidebandRetryCount 3 ; #Number of times to retry the sideband pool when any failure is observed. 
     set is_sidebandConnectTimeout 50 ; #the time in milliseconds to wait to establish the connection to the sideband pool member.    
     set is_sidebandIdleTimeout 30 ; #the time in seconds to leave the connection open if it is unused.
     set is_sidebandSendTimeout 50 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.  
@@ -67,104 +68,118 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
     ## Cache MISS
         if { $is_debugLogging == 1 } { log local0. "DEBUG: MISS cache $is_httpHost = $is_cacheLookup" }
 
-    ## Get the list of active members in the sideband pool  
-    set is_members [active_members -list $is_sidebandPool] 
-
-    ## Count the number of members  
-    set is_count [llength $is_members]
+    ## Start loop for retry. Set a loop control variable to 0     
+    set is_loop 0 
     
-    ## Check if there are any healthy nodes. If there is no healthy nodes, log and exit gracefully. 
-    if { $is_count equals 0 } { 
-        log local0. "$is_errorLoggingString no healthy nodes in sideband pool!" 
-        return
-        }
+    ## While the loop control variable is less than $is_sidebandRetryCount, keep looping. 
+    while { $is_loop < $is_sidebandRetryCount } {
+        ## Log Retry attempt (if debug logging is enabled.)
+        if { $is_debugLogging == 1 } { log local0. "DEBUG: starting sideband attempt $is_loop" }      
 
-    ## Select a random member index from the pool 
-    set is_randomMemberIndex [expr {int(rand()*$is_count)}]  
+        ## Get the list of active members in the sideband pool  
+        set is_members [active_members -list $is_sidebandPool] 
 
+        ## Count the number of members  
+        set is_count [llength $is_members]
 
-    ## Format IP:port for the member that is selected.    
-    set is_memberToUse "[string map {" " ":"}[lindex $is_members $is_randomMemberIndex]]"
-
-    
-    ## Open the TCP connection to the sideband pool member
-    set is_connID [connect -timeout $is_sidebandConnectTimeout -idle $is_sidebandIdleTimeout -status conn_status $is_memberToUse] 
-
-    ## Check if TCP connection was successful. If not, try again with a different pool member.  
-    if { !($is_connID contains "connect") } { 
-        log local0. "$is_errorLoggingString cannot connect sideband to $is_memberToUse. Retrying."
-        
-        ## In a pool with 2 or more active sideband nodes try 10 times to select a different pool member or give up and try the same pool member.
-        if { $is_count >= 2 } { 
-            ## Set a loop control variable to 0     
-            set is_loop 0 
-            ## While the loop control variable is less than 10, keep looping. 
-            while { $is_loop < 10 } { 
-                ## Select another random member index from the pool 
-                set is_nextRandomMemberIndex [expr {int(rand()*$is_count)}]
-                ## Check if this new random member is the same as the previous member. 
-                if {($is_nextRandomMemberIndex != $is_randomMemberIndex)} { 
-                    ## A new sideband pool member has been selected. Set variables and Stop looping.
-                    ## Format IP:port for the member that is selected.    
-                    set is_memberToUse "[string map {" " ":"}[lindex $is_members $is_nextRandomMemberIndex]]"
-                    if { $is_debugLogging == 1 } { log local0. "DEBUG: Selected new sideband member $is_memberToUse on attempt $is_loop" }
-                    break
-                ## If this new random member is the same as the previous member, keep looping.     
-                } else { incr is_loop }
+        ## Check if there are any healthy nodes. If there is no healthy nodes, log and exit gracefully. 
+        if { $is_count equals 0 } { 
+            log local0. "$is_errorLoggingString no healthy nodes in sideband pool!" 
+            return
+            } else { 
+            if { $is_debugLogging == 1 } { log local0. "DEBUG: active members of $is_sidebandPool pool is $is_count" }    
             }
+        
+        ## Initialize iRule table entry for load balancing round robin pool members if it does not exist.
+        table set -excl is_poolRotatingIndex 0
+
+        ## Lookup iRule table entry for load balancing round robin pool members.
+        set is_poolRotatingIndex [table lookup -notouch is_poolRotatingIndex]
+
+        ## If iRule table entry does not have a value within the range of expected values, reset the table to 0. 
+         if {  !($is_poolRotatingIndex >= 0) or !($is_poolRotatingIndex <= $is_count) } { 
+            ## Set table entry for load balancing round robin pool members if it does not exist. 
+            table set is_poolRotatingIndex 0
+            set is_poolRotatingIndex 0 
+            if { $is_debugLogging == 1 } { log local0. "DEBUG: resetting round robin table for pool $is_sidebandPool to 0" }  
+        } 
+
+        ## Format IP:port for the member that is selected.    
+        set is_memberToUse "[string map {" " ":"}[lindex $is_members $is_poolRotatingIndex]]"
+
+        ## Increment rotating pool index variable 
+        incr is_poolRotatingIndex
+
+        ## Update iRule table entry with new rotating index number
+        if { $is_poolRotatingIndex >= $is_count } { 
+            ## Reset rotating index to 0 now that the last pool member in the index has been used. 
+            table set is_poolRotatingIndex 0
+        } else { 
+            ## Use next pool member
+            table set is_poolRotatingIndex $is_poolRotatingIndex
         }
 
-    
-        ## Open the RETRY TCP connection to the sideband pool member
+        ## Open the TCP connection to the sideband pool member
         set is_connID [connect -timeout $is_sidebandConnectTimeout -idle $is_sidebandIdleTimeout -status conn_status $is_memberToUse] 
 
-        ## Check if the RETRY TCP connection was successful. If not, log a message and exit gracefully.   
+        ## Check if TCP connection was successful. If not, try again with a different pool member.  
         if { !($is_connID contains "connect") } { 
-            log local0. "$is_errorLoggingString cannot connect sideband to $is_memberToUse after RETRY."
-            return 
-        }  
-    }
-
-    ## Format HTTP Request to sideband with Host FQDN from the explicit proxy request  
-    set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\n\r\n" 
-
-    ## Send HTTP Request to sideband pool member 
-    set is_sendBytes [send -timeout $is_sidebandSendTimeout -status send_status $is_connID $is_data]
-    
-    ## Check HTTP Request was sent successfully 
-    if { $is_debugLogging == 1 } {  log local0. "DEBUG: Sent $is_sendBytes bytes out of [string length $is_data] bytes" }
-    if { !($is_sendBytes == [string length $is_data]) } { 
-        log local0. "$is_errorLoggingString unable to send sideband call to $is_memberToUse. Sent $is_sendBytes bytes out of [string length $is_data] bytes"
-        return
-    }
-
-    ## Check HTTP Response was received from sideband pool member
-    set is_recv_data [recv -peek -timeout $is_sidebandReceiveTimeout -status recv_status $is_connID]
-    if { $is_debugLogging == 1 } {  log local0. "DEBUG: Received Response: $is_recv_data" }
-    
-    ## Check if response is empty
-    if { [string length $is_recv_data] <= 1 } { 
-        log local0. "$is_errorLoggingString empty response from $is_memberToUse"
-        return
+            log local0. "$is_errorLoggingString cannot connect sideband to $is_memberToUse."
+            incr is_loop
+            if { $is_loop >= $is_count } { break }
+            continue
         }
-    
-    ## Check if response does not contain expected strings     
-    if { !($is_recv_data contains "Bypass") and !($is_recv_data contains "Intercept") } { 
-        log local0. "$is_errorLoggingString invalid sideband response from $is_memberToUse"
-        return
+        ## Format HTTP Request to sideband with Host FQDN from the explicit proxy request  
+        set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\n\r\n" 
+
+        ## Send HTTP Request to sideband pool member 
+        set is_sendBytes [send -timeout $is_sidebandSendTimeout -status send_status $is_connID $is_data]
+
+        ## Check HTTP Request was sent successfully 
+        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Sent $is_sendBytes bytes out of [string length $is_data] bytes to $is_memberToUse." }
+        if { !($is_sendBytes == [string length $is_data]) } { 
+            log local0. "$is_errorLoggingString unable to send sideband call to $is_memberToUse. Sent $is_sendBytes bytes out of [string length $is_data] bytes"
+            incr is_loop
+            if { $is_loop >= $is_count } { break }  
+            continue
         }
 
-    ## Add sideband results to variables 
-    set is_urlCategory [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Categories*] ": " 2] 
-    set is_decryptDecision [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Decrypt-Decision*] ": " 2] 
-    
-    ## Set cache entry for this HTTP FQDN
-    table set $is_httpHost "$is_decryptDecision|$is_urlCategory" $is_cacheTimeout $is_cacheTimeout
-    if { $is_debugLogging == 1 } { log local0. "DEBUG: Added Cache entry $is_httpURI is_decryptDecision: $is_decryptDecision  is_urlCategory: $is_urlCategory" }
+        ## Check HTTP Response was received from sideband pool member
+        set is_recv_data [recv -peek -timeout $is_sidebandReceiveTimeout -status recv_status $is_connID]
+        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Received Response: $is_recv_data from $is_memberToUse." }
 
+        ## Check if response is empty
+        if { [string length $is_recv_data] <= 1 } { 
+            log local0. "$is_errorLoggingString empty response from $is_memberToUse"
+            incr is_loop
+            if { $is_loop >= $is_count } { break }  
+            continue
+            }
+
+        ## Check if response does not contain expected strings     
+        if { !($is_recv_data contains "Bypass") and !($is_recv_data contains "Intercept") } { 
+            log local0. "$is_errorLoggingString invalid sideband response from $is_memberToUse"
+            incr is_loop
+            if { $is_loop >= $is_count } { break }  
+            continue
+            }
+
+        ## Add sideband results to variables 
+        set is_urlCategory [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Categories*] ": " 2] 
+        set is_decryptDecision [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Decrypt-Decision*] ": " 2] 
+
+        ## Set cache entry for this HTTP FQDN
+        table set $is_httpHost "$is_decryptDecision|$is_urlCategory" $is_cacheTimeout $is_cacheTimeout
+        if { $is_debugLogging == 1 } { log local0. "DEBUG: Added Cache entry $is_httpURI is_decryptDecision: $is_decryptDecision  is_urlCategory: $is_urlCategory" }
+
+    ## End retry loop
+    break
+    }
+## End not-cached if condition
 }
     ## If HTTP FQDN should be bypassed, send the explicit proxy HTTP request to a different virtual server. 
     if { ${is_decryptDecision} eq "Bypass" } { 
         virtual $is_sslBypassVirtualServer
     }       
+}
 }
