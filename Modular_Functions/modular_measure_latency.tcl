@@ -10,8 +10,8 @@
 #Event SERVERSSL_HANDSHAKE requires serverssl profile on virtual
 #Requires ASM profile on virtual server with iRule events enabled (this is common for most ASM deployments)
 
-when FLOW_INIT priority 100 {
-
+when FLOW_INIT priority 10 {
+catch {
     ###User-Edit Variables start###
     set mml_measureWithoutHeader 0 ; #0 = Measure all HTTP requests, 1 = only measure latency for HTTP requests that contain HTTP header name $mml_clientEnableTimingHeaderName and header value $mml_clientEnableTimingHeaderValue
     set mml_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
@@ -38,19 +38,20 @@ when FLOW_INIT priority 100 {
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
 }
+}
 
 when CLIENT_ACCEPTED priority 10 {
-set mml_CLIENT_ACCEPTED [clock clicks -milliseconds] 
+catch { set mml_CLIENT_ACCEPTED [clock clicks -milliseconds] }
 }
 when CLIENTSSL_CLIENTHELLO priority 10 {
-set mml_CLIENTSSL_CLIENTHELLO [clock clicks -milliseconds] 
+catch { set mml_CLIENTSSL_CLIENTHELLO [clock clicks -milliseconds] }
 }
 when CLIENTSSL_HANDSHAKE priority 10 {
-set mml_CLIENTSSL_HANDSHAKE [clock clicks -milliseconds] 
+catch { set mml_CLIENTSSL_HANDSHAKE [clock clicks -milliseconds] }
 }
 
 when HTTP_REQUEST priority 10 {
-
+catch { 
 #Check if this HTTP request indicates further timing events should be collected. 
 if { $mml_measureWithoutHeader equals 1 or [HTTP::header value $mml_clientEnableTimingHeaderName ] equals $mml_clientEnableTimingHeaderValue } {
     log local0. "measuring latency!!"
@@ -59,32 +60,34 @@ if { $mml_measureWithoutHeader equals 1 or [HTTP::header value $mml_clientEnable
     set mml_HTTP_REQUEST [clock clicks -milliseconds]
 } 
 }
+}
 
 
 #Requires ASM profile to have iRule events enabled to populate data. It wont cause failures if its disabled in the ASM policy and still uncommented here but it will cause stat collection to be skipped.   
 when ASM_REQUEST_DONE priority 10  {
-  if { $mml_debugTiming equals 1 } { set mml_ASM_REQUEST_DONE [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_ASM_REQUEST_DONE [clock clicks -milliseconds] } }
 }
 when LB_SELECTED priority 10  {
- if { $mml_debugTiming equals 1 } { set mml_LB_SELECTED [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_LB_SELECTED [clock clicks -milliseconds] } }
 }
 when SERVER_CONNECTED priority 10  {
- if { $mml_debugTiming equals 1 } { set mml_SERVER_CONNECTED [clock clicks -milliseconds] }
+catch { if { $mml_debugTiming equals 1 } { set mml_SERVER_CONNECTED [clock clicks -milliseconds] } }
 }
 when SERVERSSL_CLIENTHELLO_SEND priority 10  {
- if { $mml_debugTiming equals 1 } { set mml_SERVERSSL_CLIENTHELLO_SEND [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_SERVERSSL_CLIENTHELLO_SEND [clock clicks -milliseconds] } } 
 }
 when SERVERSSL_HANDSHAKE priority 10  {
-if { $mml_debugTiming equals 1 } { set mml_SERVERSSL_HANDSHAKE [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_SERVERSSL_HANDSHAKE [clock clicks -milliseconds] } }
 }
 when HTTP_REQUEST_RELEASE priority 10  {
- if { $mml_debugTiming equals 1 } { set mml_HTTP_REQUEST_RELEASE [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_HTTP_REQUEST_RELEASE [clock clicks -milliseconds] } }
 }
 when HTTP_RESPONSE priority 10 {
- if { $mml_debugTiming equals 1 } { set mml_HTTP_RESPONSE [clock clicks -milliseconds] } 
+catch { if { $mml_debugTiming equals 1 } { set mml_HTTP_RESPONSE [clock clicks -milliseconds] } }
 }
 
 when HTTP_REQUEST priority 1000 {
+catch {
     #Run at priority 1000 (very last) to see if another iRule has responded to the HTTP request. If so, generate partial latency data. 
     
     #Exit gracefully if request does not contain required server timing enable header.
@@ -119,9 +122,11 @@ when HTTP_REQUEST priority 1000 {
      }
 
 }
+}
 
 
-when ASM_REQUEST_BLOCKING priority 10 {
+when ASM_REQUEST_BLOCKING priority 520 {
+catch { 
     #Requires ASM policy "raise iRule event" setting to be enabled in ASM policy. This event is raised when ASM has triggered a block action for the request.
     #Exit gracefully if request does not contain required server timing enable header.
 
@@ -153,9 +158,10 @@ when ASM_REQUEST_BLOCKING priority 10 {
     set mml_HTTP_RESPONSE 0 
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
-     }
-
+}
+}
 when HTTP_RESPONSE_RELEASE priority 520 {
+catch { 
     #Exit gracefully if request does not contain required server timing enable header.
 
     if { $mml_debugTiming equals 0 } {
@@ -214,5 +220,6 @@ when HTTP_RESPONSE_RELEASE priority 520 {
     set mml_HTTP_RESPONSE 0 
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
+}
 }
 }
