@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 2/2024.
-## Version 2.0
+## Version 2.1
 ## This iRule: 
 ##  1.   collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request
 ##  2.   makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/?url=${is_httpHost})  
@@ -17,7 +17,7 @@
 when HTTP_REQUEST priority 200 { 
 catch {
     ###User-Edit Variables start###
-    set is_sidebandPool "mcafee-api" ; #LTM pool containing nodes to send the sideband HTTP request
+    set static::is_sidebandPool "mcafee-api" ; #LTM pool containing nodes to send the sideband HTTP request
     set is_debugLogging 1 ; #0 = Disabled, 1 = Enabled
     set is_errorLoggingString "CRIT:" ; #Keyword string to be included in error logs. 
     set is_cacheTimeout 3600 ; #Number of seconds to cache a bypass/intercept decision for a given FQDN. 
@@ -58,7 +58,8 @@ if { !([HTTP::method] equals "CONNECT") } {
 ## Check if  cache (iRule table) has entry for $is_httpHost.  Expecting is_data to contain "Bypass" or "Intercept".  If found, set is_urlCategory and is_decryptDecision using table is_data. Then skip calling the sideband.  
 if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" } {
     ## Cache HIT
-       if { $is_debugLogging == 1 } { log local0. "DEBUG: HIT cache $is_httpHost = $is_cacheLookup" }
+    if { $is_debugLogging == 1 } { log local0. "DEBUG: HIT cache $is_httpHost = $is_cacheLookup" }
+    
     #Set decrypt decision based on cached iRule table is_data 
     set is_decryptDecision [getfield $is_cacheLookup "|" 1]
     set is_urlCategory [getfield $is_cacheLookup "|" 2]
@@ -66,7 +67,10 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
 } else {
 
     ## Cache MISS
-        if { $is_debugLogging == 1 } { log local0. "DEBUG: MISS cache $is_httpHost = $is_cacheLookup" }
+    if { $is_debugLogging == 1 } { log local0. "DEBUG: MISS cache $is_httpHost = $is_cacheLookup" }
+
+    ## Initialize variable to store decrypt decision (expecting bypass/intercept after lookup)
+    set is_decryptDecision 0 
 
     ## Start loop for retry. Set a loop control variable to 0     
     set is_loop 0 
@@ -74,10 +78,16 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
     ## While the loop control variable is less than $is_sidebandRetryCount, keep looping. 
     while { $is_loop < $is_sidebandRetryCount } {
         ## Log Retry attempt (if debug logging is enabled.)
-        if { $is_debugLogging == 1 } { log local0. "DEBUG: starting sideband attempt $is_loop" }      
+        if { $is_debugLogging == 1 } { log local0. "DEBUG: starting sideband attempt [expr {$is_loop + 1}] for $is_httpHost" }      
+
+        ## Check if sideband pool exists
+        if { [catch { set is_members [active_members -list $static::is_sidebandPool]}] } { 
+            log local0. "$is_errorLoggingString LTM pool $static::is_sidebandPool does not exist!"
+            return 
+        }
 
         ## Get the list of active members in the sideband pool  
-        set is_members [active_members -list $is_sidebandPool] 
+        set is_members [active_members -list $static::is_sidebandPool] 
 
         ## Count the number of members  
         set is_count [llength $is_members]
@@ -87,7 +97,7 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
             log local0. "$is_errorLoggingString no healthy nodes in sideband pool!" 
             return
             } else { 
-            if { $is_debugLogging == 1 } { log local0. "DEBUG: active members of $is_sidebandPool pool is $is_count" }    
+            if { $is_debugLogging == 1 } { log local0. "DEBUG: active members of $static::is_sidebandPool pool is $is_count" }    
             }
         
         ## Initialize iRule table entry for load balancing round robin pool members if it does not exist.
@@ -98,10 +108,11 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
 
         ## If iRule table entry does not have a value within the range of expected values, reset the table to 0. 
          if {  !($is_poolRotatingIndex >= 0) or !($is_poolRotatingIndex <= $is_count) } { 
+            
             ## Set table entry for load balancing round robin pool members if it does not exist. 
             table set is_poolRotatingIndex 0
             set is_poolRotatingIndex 0 
-            if { $is_debugLogging == 1 } { log local0. "DEBUG: resetting round robin table for pool $is_sidebandPool to 0" }  
+            if { $is_debugLogging == 1 } { log local0. "DEBUG: resetting round robin table for pool $static::is_sidebandPool to 0" }  
         } 
 
         ## Format IP:port for the member that is selected.    
@@ -125,8 +136,16 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         ## Check if TCP connection was successful. If not, try again with a different pool member.  
         if { !($is_connID contains "connect") } { 
             log local0. "$is_errorLoggingString cannot connect sideband to $is_memberToUse."
+            
+            ## This attempt has failed. Increment the loop control variable
             incr is_loop
-            if { $is_loop >= $is_count } { break }
+            
+            ## If retry count has exceeded, log CRIT message, and stop looping. 
+            if { $is_loop >= $is_sidebandRetryCount } { 
+                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                break 
+                } 
+            ## If within the retry limit, start the retry loop again. 
             continue
         }
         ## Format HTTP Request to sideband with Host FQDN from the explicit proxy request  
@@ -139,8 +158,17 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         if { $is_debugLogging == 1 } {  log local0. "DEBUG: Sent $is_sendBytes bytes out of [string length $is_data] bytes to $is_memberToUse." }
         if { !($is_sendBytes == [string length $is_data]) } { 
             log local0. "$is_errorLoggingString unable to send sideband call to $is_memberToUse. Sent $is_sendBytes bytes out of [string length $is_data] bytes"
+            
+            ## This attempt has failed. Increment the loop control variable
             incr is_loop
-            if { $is_loop >= $is_count } { break }  
+            
+            ## If retry count has exceeded, log CRIT message, and stop looping. 
+            if { $is_loop >= $is_sidebandRetryCount } { 
+                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                break 
+                } 
+            
+            ## If within the retry limit, start the retry loop again. 
             continue
         }
 
@@ -151,18 +179,36 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         ## Check if response is empty
         if { [string length $is_recv_data] <= 1 } { 
             log local0. "$is_errorLoggingString empty response from $is_memberToUse"
+            
+            ## This attempt has failed. Increment the loop control variable
             incr is_loop
-            if { $is_loop >= $is_count } { break }  
+            
+            ## If retry count has exceeded, log CRIT message, and stop looping. 
+            if { $is_loop >= $is_sidebandRetryCount } { 
+                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                break 
+                } 
+            
+            ## If within the retry limit, start the retry loop again. 
             continue
-            }
+        }
 
         ## Check if response does not contain expected strings     
         if { !($is_recv_data contains "Bypass") and !($is_recv_data contains "Intercept") } { 
             log local0. "$is_errorLoggingString invalid sideband response from $is_memberToUse"
+            
+            ## This attempt has failed. Increment the loop control variable
             incr is_loop
-            if { $is_loop >= $is_count } { break }  
+            
+            ## If retry count has exceeded, log CRIT message, and stop looping. 
+            if { $is_loop >= $is_sidebandRetryCount } { 
+                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                break 
+                } 
+            
+            ## If within the retry limit, start the retry loop again. 
             continue
-            }
+        }
 
         ## Add sideband results to variables 
         set is_urlCategory [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Categories*] ": " 2] 
@@ -172,7 +218,7 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         table set $is_httpHost "$is_decryptDecision|$is_urlCategory" $is_cacheTimeout $is_cacheTimeout
         if { $is_debugLogging == 1 } { log local0. "DEBUG: Added Cache entry $is_httpURI is_decryptDecision: $is_decryptDecision  is_urlCategory: $is_urlCategory" }
 
-    ## End retry loop
+    ## End retry loop on success
     break
     }
 ## End not-cached if condition
