@@ -2,24 +2,29 @@
 
 This iRule builds upon the F5 DevCentral Article "Traffic Steering with 3rd party Policy Manager (Layered Architecture with Explicit Proxy)" https://community.f5.com/kb/technicalarticles/traffic-steering-with-3rd-party-policy-manager-layered-architecture-with-explici/278814
 
+Features added:
+* Performance improvement by Caching sideband responses 
+* Load balance (Round robin) requests to a pool of sideband devices
+* Retry logic
+* Error and Debug logging
+* Moved common configuration values to easy to change variables
 
- This iRule: 
-  1.   collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request
-  2.   makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/?url=${is_httpHost})  
-  3.   inspects HTTP response from HTTP proxy for HTTP headers indicating the explicit proxy request should be SSL intercepted
-  4.   based on that response, send the explicit proxy HTTP request to the appropriate virtual server that either intercepts or bypasses SSL decryption
+Actions This iRule performs: 
+1.   Collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request.
+2.   Checks iRule table cache for this FQDN for a recent Bypass/Intercept decision from the sideband pool. 
+3.   Makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/ url=$FQDN).  
+4.   Inspects HTTP response from the sideband pool (HTTP proxy) for HTTP headers indicating the explicit proxy request should be SSL intercepted. Caches that response. 
+5.   Based on that response, send the explicit proxy HTTP request to the appropriate virtual server that either intercepts or bypasses SSL decryption. 
 
 
 
 # Updates 
-
 
 ## 2.1
 * Modified variable `is_sidebandPool` to be a static variable. This will allow the iRule to be applied before the pool is created if needed.
 * Added check to see if the LTM pool exists.   
 * Added new CRIT log statements when number of retries has exceeded. 
 * Added additional comments to retry loop.
-
 
 ## 2.0
 * Modified sideband calls to be round robin instead of randomly selected. 
