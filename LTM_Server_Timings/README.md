@@ -13,6 +13,12 @@
 
 #### Version History
 
+#### v5.1
+
+Changed:  
+- Modified log field names to match previous syntax of w3c-trace iRule (see modular iRules folder for example).  
+
+
 #### v5
 
 New Features:  
