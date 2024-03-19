@@ -19,6 +19,10 @@ Actions This iRule performs:
 
 
 # Updates 
+## 3.0
+* Modified logs to be more clear about what function they are coming from.  
+* Added progressive check for validating we received sideband response. More details to come. 
+
 
 ## 2.1
 * Modified variable `is_sidebandPool` to be a static variable. This will allow the iRule to be applied before the pool is created if needed.

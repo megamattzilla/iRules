@@ -1,10 +1,11 @@
 ## Made with care by Matt Stovall 2/2024.
-## Version 2.1
+## Version 3.0
 ## This iRule: 
-##  1.   collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request
-##  2.   makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/?url=${is_httpHost})  
-##  3.   inspects HTTP response from HTTP proxy for HTTP headers indicating the explicit proxy request should be SSL intercepted
-##  4.   based on that response, send the explicit proxy HTTP request to the appropriate virtual server that either intercepts or bypasses SSL decryption
+##  1.   Collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request.
+##  2.   Checks iRule table cache for this FQDN for a recent Bypass/Intercept decision from the sideband pool. 
+##  3.   Makes a sideband HTTP call to a HTTP proxy with this FQDN information in the URI as a query string. (/ ?url=$FQDN).  
+##  4.   Inspects HTTP response from the sideband pool (HTTP proxy) for HTTP headers indicating the explicit proxy request should be SSL intercepted. Caches that response. 
+##  5.   Based on that response, send the explicit proxy HTTP request to the appropriate virtual server that either intercepts or bypasses SSL decryption. 
 
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. A prefix of is_ has been added to each variable to make them globally unique. 
 ## See https://github.com/megamattzilla/iRules/blob/master/SSLO_Sideband/README.md for more details
@@ -15,7 +16,7 @@
 ##  3. Configure those sideband pool members to reply with the Bypass/Intercept strings this iRule is looking for.   
 
 when HTTP_REQUEST priority 200 { 
-catch {
+catch { 
     ###User-Edit Variables start###
     set static::is_sidebandPool "mcafee-api" ; #LTM pool containing nodes to send the sideband HTTP request
     set is_debugLogging 1 ; #0 = Disabled, 1 = Enabled
@@ -28,7 +29,8 @@ catch {
     set is_sidebandConnectTimeout 50 ; #the time in milliseconds to wait to establish the connection to the sideband pool member.    
     set is_sidebandIdleTimeout 30 ; #the time in seconds to leave the connection open if it is unused.
     set is_sidebandSendTimeout 50 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.  
-    set is_sidebandReceiveTimeout 30 ; #the time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
+    set is_sidebandReceiveMaxTimeout 500 ; #the maximum time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
+    set is_sidebandReceiveProgressiveCheck 20 ; #the time in milliseconds to check at an interval if a response is received from the sideband. This allows for fast sideband calls to not incur the maximum wait time of is_sidebandReceiveMaxTimeout. 
     ###User-Edit Variables end###
 
 ## Set variable containing explicit proxy request URI (this contains full http://fqdn/uri per the RFC) 
@@ -135,14 +137,14 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
 
         ## Check if TCP connection was successful. If not, try again with a different pool member.  
         if { !($is_connID contains "connect") } { 
-            log local0. "$is_errorLoggingString cannot connect sideband to $is_memberToUse."
+            log local0. "$is_errorLoggingString CONNECT - cannot connect sideband to $is_memberToUse."
             
             ## This attempt has failed. Increment the loop control variable
             incr is_loop
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $is_loop >= $is_sidebandRetryCount } { 
-                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                log local0. "$is_errorLoggingString CONNECT - sideband retry limit exceeded. Decrypting $is_httpHost"
                 break 
                 } 
             ## If within the retry limit, start the retry loop again. 
@@ -157,52 +159,69 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         ## Check HTTP Request was sent successfully 
         if { $is_debugLogging == 1 } {  log local0. "DEBUG: Sent $is_sendBytes bytes out of [string length $is_data] bytes to $is_memberToUse." }
         if { !($is_sendBytes == [string length $is_data]) } { 
-            log local0. "$is_errorLoggingString unable to send sideband call to $is_memberToUse. Sent $is_sendBytes bytes out of [string length $is_data] bytes"
+            log local0. "$is_errorLoggingString SEND - unable to send sideband call to $is_memberToUse. Sent $is_sendBytes bytes out of [string length $is_data] bytes"
             
             ## This attempt has failed. Increment the loop control variable
             incr is_loop
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $is_loop >= $is_sidebandRetryCount } { 
-                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                log local0. "$is_errorLoggingString  SEND - sideband retry limit exceeded. Decrypting $is_httpHost"
                 break 
                 } 
             
             ## If within the retry limit, start the retry loop again. 
             continue
         }
+        ## Start progressive sideband check loop
+        set is_progressiveCheckStart [clock clicks -milliseconds]
 
-        ## Check HTTP Response was received from sideband pool member
-        set is_recv_data [recv -peek -timeout $is_sidebandReceiveTimeout -status recv_status $is_connID]
-        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Received Response: $is_recv_data from $is_memberToUse." }
-
-        ## Check if response is empty
-        if { [string length $is_recv_data] <= 1 } { 
-            log local0. "$is_errorLoggingString empty response from $is_memberToUse"
+        ## Loop starting now until the value in milliseconds of $is_sidebandReceiveMaxTimeout is exceeded. 
+        while { [clock clicks -milliseconds] < [expr { $is_progressiveCheckStart + $is_sidebandReceiveMaxTimeout }] } {
             
+            ## Check if a response has been received from sideband. 
+            set is_recv_data [recv -peek -timeout $is_sidebandReceiveProgressiveCheck -status recv_status $is_connID]
+            if { [string length $is_recv_data] <= 1 } {
+            
+            ## When no response is received generate a debug log, and loop again after waiting the value in milliseconds of $is_sidebandReceiveProgressiveCheck.  
+            if { $is_debugLogging == 1 } {  log local0. "DEBUG: Progressive Check - Empty Response: $is_recv_data from $is_memberToUse. Checking again in $is_sidebandReceiveProgressiveCheck  miliseconds." }  
+            after $is_sidebandReceiveProgressiveCheck 
+            continue
+            } else {
+                ## If response data was received by this progressive check break the loop and continue processing iRule. 
+                break
+            }
+        }
+        ## Check post-progressive check HTTP Response was received from sideband pool member
+        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Finished Progressive check after [expr { [clock clicks -milliseconds] - $is_progressiveCheckStart }] miliseconds. Received Response: $is_recv_data from $is_memberToUse" }
+        
+        ## Check if post-progressive check response is empty
+        if { [string length $is_recv_data] <= 1 } { 
+            log local0. "$is_errorLoggingString RECEIVE - Post-Progressive check empty response from $is_memberToUse"
+
             ## This attempt has failed. Increment the loop control variable
             incr is_loop
-            
+
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $is_loop >= $is_sidebandRetryCount } { 
-                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                log local0. "$is_errorLoggingString RECEIVE - sideband retry limit exceeded. Decrypting $is_httpHost"
                 break 
                 } 
-            
+
             ## If within the retry limit, start the retry loop again. 
             continue
         }
 
         ## Check if response does not contain expected strings     
         if { !($is_recv_data contains "Bypass") and !($is_recv_data contains "Intercept") } { 
-            log local0. "$is_errorLoggingString invalid sideband response from $is_memberToUse"
+            log local0. "$is_errorLoggingString RECEIVE - invalid sideband response from $is_memberToUse"
             
             ## This attempt has failed. Increment the loop control variable
             incr is_loop
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $is_loop >= $is_sidebandRetryCount } { 
-                log local0. "$is_errorLoggingString sideband retry limit exceeded. Decrypting $is_httpHost"
+                log local0. "$is_errorLoggingString RECEIVE - sideband retry limit exceeded. Decrypting $is_httpHost"
                 break 
                 } 
             
