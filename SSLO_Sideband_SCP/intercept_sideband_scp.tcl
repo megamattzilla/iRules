@@ -132,10 +132,11 @@ set is_X_SWEB_ClientIP [HTTP::header value X-SWEB-ClientIP]
             ## If within the retry limit, start the retry loop again. 
             continue
         }
-## Format HTTP Request to sideband with Host FQDN from the explicit proxy request  
-#set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\n\r\n" 
-set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\nX-SWEB-AuthVersion: $is_X_SWEB_AuthVersion\r\nX-SWEB-AuthCustID: $is_X_SWEB_AuthCustID\r\nX-SWEB-AuthUser: $is_X_SWEB_AuthUser\r\nX-SWEB-AuthGroups: $is_X_SWEB_AuthGroups\r\nX-SWEB-AuthTS: $is_X_SWEB_AuthTS\r\nX-SWEB-AuthToken: $is_X_SWEB_AuthToken\r\nX-SWEB-ClientIP: $is_X_SWEB_ClientIP\r\n\r\n" 
-
+        ## Format HTTP Request to sideband with Host FQDN from the explicit proxy request  
+        #set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\n\r\n" 
+        #set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\r\nX-SWEB-AuthVersion: $is_X_SWEB_AuthVersion\r\nX-SWEB-AuthCustID: $is_X_SWEB_AuthCustID\r\nX-SWEB-AuthUser: $is_X_SWEB_AuthUser\r\nX-SWEB-AuthGroups: $is_X_SWEB_AuthGroups\r\nX-SWEB-AuthTS: $is_X_SWEB_AuthTS\r\nX-SWEB-AuthToken: $is_X_SWEB_AuthToken\r\nX-SWEB-ClientIP: $is_X_SWEB_ClientIP\r\n\r\n" 
+        set is_data "[HTTP::method] [HTTP::uri] HTTP/1.0\r\nX-SWEB-AuthVersion: $is_X_SWEB_AuthVersion\r\nX-SWEB-AuthCustID: $is_X_SWEB_AuthCustID\r\nX-SWEB-AuthUser: $is_X_SWEB_AuthUser\r\nX-SWEB-AuthGroups: $is_X_SWEB_AuthGroups\r\nX-SWEB-AuthTS: $is_X_SWEB_AuthTS\r\nX-SWEB-AuthToken: $is_X_SWEB_AuthToken\r\nX-SWEB-ClientIP: $is_X_SWEB_ClientIP\r\n\r\n"
+        
         ## Send HTTP Request to sideband pool member 
         set is_sendBytes [send -timeout $is_sidebandSendTimeout -status send_status $is_connID $is_data]
 
