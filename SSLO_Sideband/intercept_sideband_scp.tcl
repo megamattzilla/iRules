@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 3/2024.
-## Version 0.5
+## Version 0.6
 ## This iRule: 
 ##  1.   Collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request.
 ##  2.   Checks iRule table cache for this FQDN for a recent Bypass/Intercept decision from the sideband pool. 
@@ -18,7 +18,7 @@
 when HTTP_REQUEST priority 200 { 
 
     ###User-Edit Variables start###
-    set static::is_sidebandPool "mcafee-api" ; #LTM pool containing nodes to send the sideband HTTP request
+    set static::is_sidebandPool "mcafee-api-scp" ; #LTM pool containing nodes to send the sideband HTTP request
     set is_debugLogging 1 ; #0 = Disabled, 1 = Enabled
     set is_errorLoggingString "CRIT:" ; #Keyword string to be included in error logs. 
     set is_cacheTimeout 3600 ; #Number of seconds to cache a bypass/intercept decision for a given FQDN. 
@@ -41,6 +41,8 @@ set is_httpURI [HTTP::uri]
        } else { 
            set is_httpHost [findstr ${is_httpURI} "" 0 ":"]     
        } 
+       
+       log local0. "[HTTP::header names]" 
 ## Set variables for SCP header values
 set is_X_SWEB_AuthVersion [HTTP::header value X-SWEB-AuthVersion]
 set is_X_SWEB_AuthCustID [HTTP::header value X-SWEB-AuthCustID]
@@ -175,7 +177,34 @@ set is_data "HEAD /?url=${is_httpHost} HTTP/1.1\r\nHost: $is_sidebandHostHeader\
             ## If within the retry limit, start the retry loop again. 
             continue
         }
-
+        
+            ## Check if response contains a decrypted username. We assume a value greater than 5 characters is the decrypted username. 
+            if {  !([string length [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] ] >= 5)  } { 
+            log local0. "$is_errorLoggingString RECEIVE - invalid sideband response from $is_memberToUse"
+            
+            ## This attempt has failed. Increment the loop control variable
+            incr is_loop
+            
+            ## If retry count has exceeded, log CRIT message, and stop looping. 
+            if { $is_loop >= $is_sidebandRetryCount } { 
+                log local0. "$is_errorLoggingString RECEIVE - sideband retry limit exceeded. Decrypting $is_httpHost"
+                break 
+                } 
+            
+            ## If within the retry limit, start the retry loop again. 
+            continue
+        } else { 
+        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Found decrypted user: [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] " }
+        }
+        
+        ## Write sideband results to client HTTP request 
+        HTTP::header replace X-SWEB-AuthVersion [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthVersion*] ": " 2] 
+        HTTP::header replace X-SWEB-AuthCustID [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthVersion*] ": " 2]
+        HTTP::header replace X-SWEB-AuthUser [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] 
+        HTTP::header replace X-SWEB-AuthGroups [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthGroups*] ": " 2] 
+        HTTP::header replace X-SWEB-AuthTS [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthTS*] ": " 2]
+        HTTP::header replace X-SWEB-AuthToken [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthToken*] ": " 2] 
+        HTTP::header replace X-SWEB-ClientIP [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-ClientIP*] ": " 2] 
 
     ## End retry loop on success
     break
