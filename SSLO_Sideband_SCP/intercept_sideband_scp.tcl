@@ -14,7 +14,7 @@
 ##  1. To be applied to a vip-targeting-vip which points to an explicit proxy virtual server.
 ##  2. Configure a LTM pool with your sideband pool members.
 ##  3. Configure those sideband pool members to reply with the Bypass/Intercept strings this iRule is looking for.   
-
+#TODO: exit if there is no headers to decrypt. 
 when HTTP_REQUEST priority 200 { 
 
     ###User-Edit Variables start###
@@ -180,7 +180,7 @@ set is_X_SWEB_ClientIP [HTTP::header value X-SWEB-ClientIP]
         }
         
             ## Check if response contains a decrypted username. We assume a value greater than 5 characters is the decrypted username. 
-            if {  !([string length [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] ] >= 5)  } { 
+            if {  !([string length [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-User*] ": " 2] ] >= 5)  } { 
             log local0. "$is_errorLoggingString RECEIVE - invalid sideband response from $is_memberToUse"
             
             ## This attempt has failed. Increment the loop control variable
@@ -195,18 +195,16 @@ set is_X_SWEB_ClientIP [HTTP::header value X-SWEB-ClientIP]
             ## If within the retry limit, start the retry loop again. 
             continue
         } else { 
-        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Found decrypted user: [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] " }
+        if { $is_debugLogging == 1 } {  log local0. "DEBUG: Found decrypted user: [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-User*] ": " 2] " }
         }
         
-        ## Write sideband results to client HTTP request 
-        HTTP::header replace X-SWEB-AuthVersion [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthVersion*] ": " 2] 
-        HTTP::header replace X-SWEB-AuthCustID [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthVersion*] ": " 2]
-        HTTP::header replace X-SWEB-AuthUser [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthUser*] ": " 2] 
-        HTTP::header replace X-SWEB-AuthGroups [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthGroups*] ": " 2] 
-        HTTP::header replace X-SWEB-AuthTS [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthTS*] ": " 2]
-        HTTP::header replace X-SWEB-AuthToken [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-AuthToken*] ": " 2] 
-        HTTP::header replace X-SWEB-ClientIP [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-SWEB-ClientIP*] ": " 2] 
+        ## Write sideband results to client HTTP request
+        HTTP::header insert X-Authenticated-User [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-User*] ": " 2] 
+        HTTP::header insert X-Authenticated-UserGroups [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-UserGroups*] ": " 2]
+        HTTP::header insert X-Client-IP [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Client-IP*] ": " 2] 
 
+        ##TODO: Add code to send this request to special topology 
+        
     ## End retry loop on success
     break
     }
