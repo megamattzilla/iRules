@@ -14,7 +14,7 @@
 ##  1. To be applied to a vip-targeting-vip which points to an explicit proxy virtual server.
 ##  2. Configure a LTM pool with your sideband pool members.
 ##  3. Configure those sideband pool members to reply with the Bypass/Intercept strings this iRule is looking for.   
-#TODO: exit if there is no headers to decrypt. 
+#TODO: exit if there is no headers to decrypt.
 when HTTP_REQUEST priority 200 { 
 
     ###User-Edit Variables start###
@@ -202,9 +202,13 @@ set is_X_SWEB_ClientIP [HTTP::header value X-SWEB-ClientIP]
         HTTP::header insert X-Authenticated-User [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-User*] ": " 2] 
         HTTP::header insert X-Authenticated-UserGroups [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Authenticated-UserGroups*] ": " 2]
         HTTP::header insert X-Client-IP [findstr [lsearch -inline [split $is_recv_data "\r\n"] X-Client-IP*] ": " 2] 
-
-        ##TODO: Add code to send this request to special topology 
-        
+        sharedvar connectHeaderClientIP
+        sharedvar connectHeaderUserGroups
+        sharedvar connectHeaderUser 
+        set connectHeaderClientIP [HTTP::header value X-Client-IP]
+        set connectHeaderUserGroups [HTTP::header value X-Authenticated-UserGroups]
+        set connectHeaderUser [HTTP::header value X-Authenticated-User]
+    
     ## End retry loop on success
     break
     }
