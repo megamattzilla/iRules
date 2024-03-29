@@ -8,7 +8,6 @@
 
 ## Requirements: 
 ##  1. TBD 
-
 when HTTP_REQUEST priority 400 {
 log local0. "plz work "
 #set insert_uuid_header 0 
@@ -87,9 +86,14 @@ log local0. "plz work "
 if {  [info exists APMSID] } { 
     log local0. "Found existing APM session for $user_key = $APMSID"
     ## Increment bytes in
+    if { [HTTP::header Content-Length] > 0 } then {
+                set res_length [HTTP::header "Content-Length"] 
+            } else {
+                set res_length 0
+    }
     set rbytes [ACCESS::session data get -sid $APMSID "session.stats.bytes.out"]
-    set rnewbytes [expr { [string length [HTTP::response]] + $rbytes }]
-    log local0. "OUT: Old bytes $rbytes new bytes $rnewbytes"
+    set rnewbytes [expr { [string length [HTTP::response]] + $rbytes + $res_length }]
+    log local0. "OUT: Old bytes $rbytes new bytes $rnewbytes Content-Length $res_length"
     ACCESS::session data set -sid $APMSID "session.stats.bytes.out" $rnewbytes 
 
 }
