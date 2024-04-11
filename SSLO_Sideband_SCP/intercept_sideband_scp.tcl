@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 3/2024.
-## Version 0.9
+## Version 0.95
 ## This iRule: 
 ##  1.   TBD 
 
@@ -18,11 +18,12 @@ when HTTP_REQUEST priority 300 {
     set iss_requiredHeaderValue "42" ; #Required HTTP value for this sideband to function.  
     set iss_debugLogging 1 ; #0 = Disabled, 1 = Enabled
     set iss_errorLoggingString "CRIT:" ; #Keyword string to be included in error logs. 
-    set iss_sidebandHostHeader "sideband.example.com" ; #HTTP host header value to use in the sideband call.
     set iss_sidebandRetryCount 3 ; #Number of times to retry the sideband pool when any failure is observed. 
     set iss_sidebandConnectTimeout 50 ; #the time in milliseconds to wait to establish the connection to the sideband pool member.    
     set iss_sidebandIdleTimeout 30 ; #the time in seconds to leave the connection open if it is unused.
-    set iss_sidebandSendTimeout 50 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.  
+    set iss_sidebandSendTimeout 50 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.
+    set iss_sidebandReceiveMaxTimeout 60 ; #the maximum time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
+    set iss_sidebandReceiveProgressiveCheck 2 ; #the time in milliseconds to check at an interval if a response is received from the sideband. This allows for fast sideband calls to not incur the maximum wait time of iss_sidebandReceiveMaxTimeout. 
     set iss_sidebandReceiveTimeout 30 ; #the time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
     ###User-Edit Variables end###
 
@@ -31,9 +32,6 @@ when HTTP_REQUEST priority 300 {
         if { $iss_debugLogging == 1 } { log local0. "DEBUG: Skipping SCP sideband" }   
         return
     }
-
-    ## Set variable containing explicit proxy request URI (this contains full http://fqdn/uri per the RFC) 
-    set iss_httpURI [HTTP::uri] 
 
     ## Set variable containing FQDN 
     set iss_httpHost [HTTP::host]
@@ -46,10 +44,6 @@ when HTTP_REQUEST priority 300 {
     set iss_X_SWEB_AuthTS [HTTP::header value X-SWEB-AuthTS]
     set iss_X_SWEB_AuthToken [HTTP::header value X-SWEB-AuthToken]
     set iss_X_SWEB_ClientIP [HTTP::header value X-SWEB-ClientIP]
-
-
-    ## Initialize variable to store decrypt decision (expecting bypass/intercept after lookup)
-    set iss_decryptDecision 0 
 
     ## Start loop for retry. Set a loop control variable to 0     
     set iss_loop 0 
@@ -127,7 +121,7 @@ when HTTP_REQUEST priority 300 {
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $iss_loop >= $iss_sidebandRetryCount } { 
-                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Decrypting $iss_httpHost"
+                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Failed to decrypt SCP headers for [IP::client_addr] $iss_httpHost"
                 break 
                 } 
             ## If within the retry limit, start the retry loop again. 
@@ -150,7 +144,7 @@ when HTTP_REQUEST priority 300 {
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $iss_loop >= $iss_sidebandRetryCount } { 
-                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Decrypting $iss_httpHost"
+                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Failed to decrypt SCP headers for [IP::client_addr] $iss_httpHost"
                 break 
                 } 
             
@@ -158,11 +152,30 @@ when HTTP_REQUEST priority 300 {
             continue
         }
 
-        ## Check HTTP Response was received from sideband pool member
-        set iss_recv_data [recv -peek -timeout $iss_sidebandReceiveTimeout -status recv_status $iss_connID]
-        if { $iss_debugLogging == 1 } {  log local0. "DEBUG: Received Response: $iss_recv_data from $iss_memberToUse." }
+        ## Start progressive sideband check loop
+        set iss_progressiveCheckStart [clock clicks -milliseconds]
 
-        ## Check if response is empty
+        ## Loop starting now until the value in milliseconds of $iss_sidebandReceiveMaxTimeout is exceeded. 
+        while { [clock clicks -milliseconds] < [expr { $iss_progressiveCheckStart + $iss_sidebandReceiveMaxTimeout }] } {
+            
+            ## Check if a response has been received from sideband. Check if we have received the response headers (terminated by two CRLFs).    
+            set iss_recv_data [recv -peek -timeout $iss_sidebandReceiveProgressiveCheck -status recv_status $iss_connID]
+            if {[string match "HTTP/*\r\n\r\n*" $iss_recv_data]} {
+                ## Debug log that Progressive check is finished. 
+                if { $iss_debugLogging == 1 } {  log local0. "DEBUG: Passed Progressive check. Received Response: $iss_recv_data from $iss_memberToUse" }  
+                ## Stop progressive check.
+                break 
+            } else {
+            ## If the response is not received or incomplete, generate a debug log, and loop again after waiting the value in milliseconds of $iss_sidebandReceiveProgressiveCheck.  
+                if { $iss_debugLogging == 1 } {  log local0. "DEBUG: Progressive Check - Empty Response: $iss_recv_data from $iss_memberToUse. Checking again in $iss_sidebandReceiveProgressiveCheck  milliseconds." }  
+                after $iss_sidebandReceiveProgressiveCheck 
+                continue
+        }
+        }
+        ## Debug log that Progressive check is finished. 
+        if { $iss_debugLogging == 1 } {  log local0. "DEBUG: Finished Progressive check after [expr { [clock clicks -milliseconds] - $iss_progressiveCheckStart }] milliseconds. Received Response: $iss_recv_data from $iss_memberToUse" }
+        
+        ## Check if post-progressive check response is empty
         if { [string length $iss_recv_data] <= 1 } { 
             log local0. "$iss_errorLoggingString empty response from $iss_memberToUse"
             
@@ -171,7 +184,7 @@ when HTTP_REQUEST priority 300 {
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $iss_loop >= $iss_sidebandRetryCount } { 
-                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Decrypting $iss_httpHost"
+                log local0. "$iss_errorLoggingString sideband retry limit exceeded. Failed to decrypt SCP headers for [IP::client_addr] $iss_httpHost"
                 break 
                 } 
             
@@ -188,7 +201,7 @@ when HTTP_REQUEST priority 300 {
             
             ## If retry count has exceeded, log CRIT message, and stop looping. 
             if { $iss_loop >= $iss_sidebandRetryCount } { 
-                log local0. "$iss_errorLoggingString RECEIVE - sideband retry limit exceeded. Decrypting $iss_httpHost"
+                log local0. "$iss_errorLoggingString RECEIVE - sideband retry limit exceeded. Failed to decrypt SCP headers for [IP::client_addr] $iss_httpHost"
                 break 
                 } 
             
