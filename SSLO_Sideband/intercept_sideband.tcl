@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 2/2024.
-## Version 3.0
+## Version 3.5
 ## This iRule: 
 ##  1.   Collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request.
 ##  2.   Checks iRule table cache for this FQDN for a recent Bypass/Intercept decision from the sideband pool. 
@@ -179,20 +179,21 @@ if { $is_cacheLookup contains "Bypass"  or $is_cacheLookup contains "Intercept" 
         ## Loop starting now until the value in milliseconds of $is_sidebandReceiveMaxTimeout is exceeded. 
         while { [clock clicks -milliseconds] < [expr { $is_progressiveCheckStart + $is_sidebandReceiveMaxTimeout }] } {
             
-            ## Check if a response has been received from sideband. 
+            ## Check if a response has been received from sideband. Check if we have received the response headers (terminated by two CRLFs).    
             set is_recv_data [recv -peek -timeout $is_sidebandReceiveProgressiveCheck -status recv_status $is_connID]
-            if { [string length $is_recv_data] <= 1 } {
-            
-            ## When no response is received generate a debug log, and loop again after waiting the value in milliseconds of $is_sidebandReceiveProgressiveCheck.  
-            if { $is_debugLogging == 1 } {  log local0. "DEBUG: Progressive Check - Empty Response: $is_recv_data from $is_memberToUse. Checking again in $is_sidebandReceiveProgressiveCheck  miliseconds." }  
-            after $is_sidebandReceiveProgressiveCheck 
-            continue
+            if {[string match "HTTP/*\r\n\r\n*" $is_recv_data]} {
+                ## Debug log that Progressive check is finished. 
+                if { $is_debugLogging == 1 } {  log local0. "DEBUG: Passed Progressive check. Received Response: $is_recv_data from $is_memberToUse" }  
+                ## Stop progressive check.
+                break 
             } else {
-                ## If response data was received by this progressive check break the loop and continue processing iRule. 
-                break
-            }
+            ## If the response is not received or incomplete, generate a debug log, and loop again after waiting the value in milliseconds of $is_sidebandReceiveProgressiveCheck.  
+                if { $is_debugLogging == 1 } {  log local0. "DEBUG: Progressive Check - Empty Response: $is_recv_data from $is_memberToUse. Checking again in $is_sidebandReceiveProgressiveCheck  milliseconds." }  
+                after $is_sidebandReceiveProgressiveCheck 
+                continue
         }
-        ## Check post-progressive check HTTP Response was received from sideband pool member
+        }
+        ## Debug log that Progressive check is finished. 
         if { $is_debugLogging == 1 } {  log local0. "DEBUG: Finished Progressive check after [expr { [clock clicks -milliseconds] - $is_progressiveCheckStart }] miliseconds. Received Response: $is_recv_data from $is_memberToUse" }
         
         ## Check if post-progressive check response is empty

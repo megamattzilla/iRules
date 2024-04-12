@@ -16,7 +16,10 @@ Actions This iRule performs:
 4.   Inspects HTTP response from the sideband pool (HTTP proxy) for HTTP headers indicating the explicit proxy request should be SSL intercepted. Caches that response. 
 5.   Based on that response, send the explicit proxy HTTP request to the appropriate virtual server that either intercepts or bypasses SSL decryption. 
 
-
+# Updates 
+## 3.5
+* Fixed a potential issue where the progressive check passes and subsequent iRule processing occurs before the complete HTTP response has been received.
+* Added debug log when progressive check passes. Now there is a log for pass/fail/summary (after progressive check).   
 
 # Updates 
 ## 3.0
