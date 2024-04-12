@@ -24,7 +24,6 @@ when HTTP_REQUEST priority 300 {
     set iss_sidebandSendTimeout 50 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.
     set iss_sidebandReceiveMaxTimeout 60 ; #the maximum time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
     set iss_sidebandReceiveProgressiveCheck 2 ; #the time in milliseconds to check at an interval if a response is received from the sideband. This allows for fast sideband calls to not incur the maximum wait time of iss_sidebandReceiveMaxTimeout. 
-    set iss_sidebandReceiveTimeout 30 ; #the time in milliseconds to wait for the HTTP response to be received from the sideband pool member. 
     ###User-Edit Variables end###
 
     ## Check if required HTTP header name and value is present. Exit gracefully if not found. 
