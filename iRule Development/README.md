@@ -70,7 +70,7 @@ To acquire a more accurate CPU cycle count for those types of situations, you ca
 
 Example iRule with long after (sleep) command and checking timing manually:
 
-```json
+```
 when HTTP_REQUEST priority 2 {
 set total_start_time [clock clicks]
 
@@ -96,7 +96,7 @@ log local0. "Time Taken with wait: [expr { $total_end_time - $total_start_time }
 ``` 
 The default iRule timing shows this iRule took 830k CPU cycles to execute:
 
-```json 
+``` 
 ----------------------------------------
 Ltm::Rule Event: after_test:HTTP_REQUEST
 ----------------------------------------
@@ -112,7 +112,7 @@ CPU Cycles on Executing
 ```
 However looking at the log output using our own timestamps, the time spent outside the after (sleep) command was very low, around 191 CPU cycles.  
 
-```json 
+```
 <HTTP_REQUEST>: waited 7000
 <HTTP_REQUEST>: Time Taken pre-wait: 1
 <HTTP_REQUEST>: Time Taken post-wait: 190
