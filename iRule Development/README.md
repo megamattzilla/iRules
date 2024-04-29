@@ -54,6 +54,10 @@ This iRule is consuming `0.037%` of 1 CPU thread.
 On a real world device, this load is distributed across all TMM threads so the percent of system-wide utilization for this 8 CPU thread system much lower:  
 
 `830,000 / (2,200,000,000 * 8) × 100 =` 0.004%
+  
+***multiple GHz by your number of TMM threads, not overall CPU threads. This example is from a VE that has 8 TMM threads.**
+  
+***You can use a command such as `tmsh show sys tmm-info | grep Sys::TMM | tee >(wc -l)` to determine your number of TMM threads**
 
 We can now state this iRule is consuming a very, very small % of overall system CPU, .004%, and its utility value likely compensates for this CPU expenditure. 
 
