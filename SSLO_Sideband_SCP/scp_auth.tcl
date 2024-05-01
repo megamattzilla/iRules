@@ -103,17 +103,19 @@ when HTTP_REQUEST priority 400 {
             table set $scpa_userKey 1
         }
     }
-            ## Declare shared variables so other virtual servers can access these variables.
-            sharedvar connectHeaderClientIP
-            sharedvar connectHeaderGroups
-            sharedvar connectHeaderUser 
-            sharedvar AMPSID
-            ## Write the users APM session ID, client IP, groups to the shared variables.
-            set connectHeaderClientIP [HTTP::header value X-Client-IP]
-            set connectHeaderGroups [HTTP::header value X-Authenticated-Groups]
-            set connectHeaderUser [HTTP::header value X-Authenticated-User]
-            ## Send this authenticated HTTP request to SCP SSLO topology.
-            virtual $static::scpa_prod_scp_sslo
+    ## Declare shared variables so other virtual servers can access these variables.
+    sharedvar connectHeaderClientIP
+    sharedvar connectHeaderGroups
+    sharedvar connectHeaderUser 
+    sharedvar AMPSID
+    
+    ## Write the users APM session ID, client IP, groups to the shared variables.
+    set connectHeaderClientIP [HTTP::header value X-Client-IP]
+    set connectHeaderGroups [HTTP::header value X-Authenticated-Groups]
+    set connectHeaderUser [HTTP::header value X-Authenticated-User]
+    
+    ## Send this authenticated HTTP request to SCP SSLO topology.
+    virtual $static::scpa_prod_scp_sslo
 }
 
 
