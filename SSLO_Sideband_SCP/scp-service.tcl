@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 3/2024.
-## Version 0.6
+## Version 0.96
 ## This iRule: 
 ##  1.   Collects HTTP information (HTTP host FQDN) from an explicit proxy HTTP request.
 ##  2.   Checks iRule table cache for this FQDN for a recent Bypass/Intercept decision from the sideband pool. 
@@ -19,7 +19,7 @@
 when HTTP_REQUEST {
 
 sharedvar connectHeaderClientIP
-sharedvar connectHeaderUserGroups
+sharedvar connectHeaderGroups
 sharedvar connectHeaderUser 
 sharedvar APMSID 
 
@@ -28,7 +28,7 @@ if {[info exists connectHeaderClientIP]} {
 HTTP::header insert X-Authenticated-User $connectHeaderUser  
 HTTP::header insert X-Client-IP $connectHeaderClientIP
 HTTP::header insert X-APM-SID $APMSID
-log local0. "plz work $connectHeaderClientIP $connectHeaderUser $connectHeaderUserGroups "
+log local0. "plz work $connectHeaderClientIP $connectHeaderUser $connectHeaderGroups "
 }
 if {[info exists APMSID ]} { 
     if  { [ catch { [string length [ACCESS::session data get -sid $APMSID "session.ad.last.attr.memberOf"]] > 0 } ] } {
