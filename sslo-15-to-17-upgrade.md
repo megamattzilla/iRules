@@ -1,5 +1,8 @@
 # SSLO TMOS 15.1 -> 17.1 upgrade steps: 
-Last Updated: 6/20/2024 @ 4pm 
+Last Updated: 6/27/2024 @ 4pm 
+
+Change Notes:
+- 6/27/24 - modified grep command to search all restnoded logs, not just the current file. 
 
 I have added my tips and links to the official upgrade steps. 
 
@@ -43,8 +46,8 @@ Upgrade steps here: https://my.f5.com/manage/s/article/K64003555#link_03_01 Stop
 7. On the active SSL Orchestrator device, Go to SSL Orchestrator > Configuration. Doing so starts the SSL Orchestrator rpm upgrade automatically on the current device
 8. On the standby SSL Orchestrator device, Go to SSL Orchestrator > Configuration. Doing so starts the SSL Orchestrator rpm upgrade automatically on the current device
 9. Go grab a coffee and come back in 10 minutes. The GUI is going to make you think the upgrade failed for the next ~10 minutes, when it's actually still running fine and shouldn't be interrupted.  
-10. After 10 minutes, Check which device is the upgrade pilot with this command: `grep "Responsible For Upgrade" /var/log/restnoded/restnoded.log` and look for `Responsible For Upgrade: true`  
-11. On the device responsible for the upgrade (true) run this command to see if the upgrade finished successfully: `grep "Upgrade Finished" /var/log/restnoded/restnoded.log` and look for `[upgradeWorker] --- Upgrade Finished ---`
+10. After 10 minutes, Check which device is the upgrade pilot with this command: `grep "Responsible For Upgrade" /var/log/restnoded/restnoded*` and look for `Responsible For Upgrade: true`  
+11. On the device responsible for the upgrade (true) run this command to see if the upgrade finished successfully: `grep "Upgrade Finished" /var/log/restnoded/restnoded*` and look for `[upgradeWorker] --- Upgrade Finished ---`
 12. IMPORTANT: perform a config sync FROM upgrade pilot device (device that said `Responsible For Upgrade: true`) TO non-upgrade pilot (device that said `Responsible For Upgrade: false`) 
 
 ### Section 5.) Post-upgrade action items (loose ends I'm working on)
