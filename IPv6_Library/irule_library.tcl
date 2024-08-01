@@ -212,6 +212,5 @@ proc Mask6 {ip {bits {}}} {
     foreach A $Addr M $Mask {
         lappend r [expr {$A & $M}]
     }
-    #return [getfield [binary format I4 $r] \0\0 1]
     return [binary format I4 $r]
 }
