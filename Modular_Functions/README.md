@@ -1,4 +1,3 @@
 ### Coming Soon!
 Version 0.1
-
-![alt text](2024-02-22_09-30-57.png)
+![alt text](2024-08-15_13-29-20.png)
