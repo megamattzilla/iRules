@@ -1,4 +1,4 @@
-# Made with ❤ by Matt Stovall 2/2024. 
+# Made with heart by Matt Stovall 2/2024. 
 # This iRule calculates latency at various TCP, TLS, HTTP, ASM events and caculates the latency between each stage. Others iRules can query this information stored in variables. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
 #See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
@@ -13,7 +13,7 @@
 when FLOW_INIT priority 10 {
 catch {
     ###User-Edit Variables start###
-    set mml_measureWithoutHeader 0 ; #0 = Measure all HTTP requests, 1 = only measure latency for HTTP requests that contain HTTP header name $mml_clientEnableTimingHeaderName and header value $mml_clientEnableTimingHeaderValue
+    set mml_measureWithoutHeader 1 ; #1 = Measure all HTTP requests, 0 = only measure latency for HTTP requests that contain HTTP header name $mml_clientEnableTimingHeaderName and header value $mml_clientEnableTimingHeaderValue
     set mml_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
     set mml_clientEnableTimingHeaderValue 1 ; #Recommend an integer. Client HTTP header value that triggers debug timing to take place. 
     set mml_enableInsertResponseHeader 1 ; #1 = enabled, 0 = disabled. Insert response HTTP header named $mml_serverTimingHeaderName with server-timing data. 
@@ -26,7 +26,6 @@ catch {
     set mml_CLIENT_ACCEPTED 0
     set mml_CLIENTSSL_CLIENTHELLO 0
     set mml_CLIENTSSL_HANDSHAKE 0 
-    set mml_http_request_count 0
     set mml_HTTP_REQUEST 0 
     set mml_ASM_REQUEST_DONE 0 
     set mml_LB_SELECTED 0 
@@ -54,9 +53,7 @@ when HTTP_REQUEST priority 10 {
 catch { 
 #Check if this HTTP request indicates further timing events should be collected. 
 if { $mml_measureWithoutHeader equals 1 or [HTTP::header value $mml_clientEnableTimingHeaderName ] equals $mml_clientEnableTimingHeaderValue } {
-    log local0. "measuring latency!!"
     set mml_debugTiming 1
-    incr mml_http_request_count
     set mml_HTTP_REQUEST [clock clicks -milliseconds]
 } 
 }
@@ -86,9 +83,9 @@ when HTTP_RESPONSE priority 10 {
 catch { if { $mml_debugTiming equals 1 } { set mml_HTTP_RESPONSE [clock clicks -milliseconds] } }
 }
 
-when HTTP_REQUEST priority 1000 {
+when HTTP_REQUEST priority 999 {
 catch {
-    #Run at priority 1000 (very last) to see if another iRule has responded to the HTTP request. If so, generate partial latency data. 
+    #Run at priority 999 (almost very last) to see if another iRule has responded to the HTTP request. If so, generate partial latency data. 
     
     #Exit gracefully if request does not contain required server timing enable header.
     if { $mml_debugTiming equals 0 } {
@@ -99,7 +96,7 @@ catch {
     if {[HTTP::has_responded]} {
     
     # Check if this is the first http request In this TCP session. If its a re-used TCP session, we have no helpful latency data for this request and just exit gracefully. 
-    if { $mml_http_request_count equals 1 } {
+    if { [HTTP::request_num] == 1 } {
 
         set mml_a [expr { $mml_CLIENT_ACCEPTED - $mml_FLOW_INIT } ] ; #measure time spent in Client TCP 3WHS. 
         set mml_b [expr { $mml_CLIENTSSL_HANDSHAKE - $mml_CLIENTSSL_CLIENTHELLO } ] ; #measure time spent in client side ssl handshake.
@@ -134,7 +131,7 @@ catch {
     return
     }
     # collect additional connection level stats if this is the first http request In this TCP session. 
-    if { $mml_http_request_count equals 1 } {
+    if { [HTTP::request_num] == 1} {
 
         set mml_a [expr { $mml_CLIENT_ACCEPTED - $mml_FLOW_INIT } ] ; #measure time spent in Client TCP 3WHS. 
         set mml_b [expr { $mml_CLIENTSSL_HANDSHAKE - $mml_CLIENTSSL_CLIENTHELLO } ] ; #measure time spent in client side ssl handshake.
@@ -179,7 +176,7 @@ catch {
     }
 
     # Collect additional connection level stats if this is the first http request In this TCP session. 
-    if { $mml_http_request_count equals 1 } {
+    if { [HTTP::request_num] == 1 } {
 
         set mml_a [expr { $mml_CLIENT_ACCEPTED - $mml_FLOW_INIT } ] ; #measure time spent in Client TCP 3WHS. 
         set mml_b [expr { $mml_CLIENTSSL_HANDSHAKE - $mml_CLIENTSSL_CLIENTHELLO } ] ; #measure time spent in client side ssl handshake.
