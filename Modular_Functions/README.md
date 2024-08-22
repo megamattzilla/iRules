@@ -4,7 +4,7 @@
 
 ### Different combinations of modular iRules applied to a virtual server activates different features:
 
-| iRule | Requires | send TCP/UDP log  | collects TCP + HTTP data | calculate TCP + HTTP + origin latency | Generates/inserts traceparent ID |
+| iRule | Requires | Send TCP/UDP log  | Collects TCP + HTTP data | Calculate/insert server timing latency | Generate/insert traceparent ID |
 | :------ | :------ | :----- | :------ | :------ |  :------ |
 |  remote_log.tcl  |  data_collector.tcl  |   Yes  |  | | |   
 |  data_collector.tcl  |  n/a  | | Yes | | |   
