@@ -25,7 +25,7 @@ catch {
     set rl_remoteLogProtocol UDP            ; #(String) UDP or TCP
     set rl_iruleBlockResponseCode 403       ; #(Integer) HTTP status code to report when an iRule block has taken place  
     set rl_asmBlockResponseCode 403         ; #(Integer) HTTP status code to report when an ASM/WAF block has taken place
-    set rl_debugLog 1                       ; #(Boolean) 0 = debug logging disabled, 1 = debug logging enabled, 
+    set rl_debugLog 0                       ; #(Boolean) 0 = debug logging disabled, 1 = debug logging enabled, 
     ###User-Edit Variables end###
 }
 }
