@@ -1,8 +1,10 @@
-# Made with heart by Matt Stovall 2/2024. Traceparent code borrowed from Granville Schmidt. 
+## Made with heart by Matt Stovall 2/2024. Traceparent code borrowed from Granville Schmidt.
+## Version 1.0 
+
 # This iRule generates a unique traceparent ID and inserts that value as a HTTP request header. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
 #See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
-#Version 1.00
+
 #Modular iRule dependency: none
 
 # W3C Trace Context specification:

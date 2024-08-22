@@ -1,9 +1,12 @@
-# Made with heart by Matt Stovall 2/2024. 
-# This iRule sets iRule session variables at various events with data values of existing TCP, HTTP, TLS variables. These new variables can be recalled and logged by other iRules. 
-#All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
-#See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
-#Version 1.0
-#Modular iRule dependency: none
+## Made with heart by Matt Stovall 2/2024. 
+## version 1.0
+
+## This iRule sets iRule session variables at various events with data values of existing TCP, HTTP, TLS variables. These new variables can be recalled and logged by other iRules. 
+## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
+## See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
+
+## Modular iRule dependency: none
+
 
 when FLOW_INIT priority 530 {
 catch {

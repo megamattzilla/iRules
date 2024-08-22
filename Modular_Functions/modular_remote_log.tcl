@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. 
-## version 0.1 
+## version 1.0
 
 ## This iRule: 
 ##  1.  Checks for presence od existing variables containing information populated from other modular iRules. 
@@ -20,35 +20,38 @@ when FLOW_INIT  {
 catch {
 
     ###User-Edit Variables start###
-    #set rl_logSampleRate 0 ; #Sample rate (Integer) of logging performed. Value of 0= log all requests. Other values= log every x request. 
-    set rl_remoteLoggingPool logging-pool ; #Name of LTM pool to use for remote logging servers 
-    set rl_remoteLogProtocol UDP ; #UDP or TCP
-    set rl_iruleBlockResponseCode 403 ; #HTTP status code to report when an iRule block has taken place  
-    set rl_asmBlockResponseCode 403 ; #HTTP status code to report when an ASM/WAF block has taken place
-    set rl_debugLog 1 ;#1 = debug logging enabled, 0 = debug logging disabled. 
+    set rl_skip2xxlogging 0                 ; #(Boolean) 0 = log all requests, 1 = only log 3xx, 4xx, 5xx HTTP response codes. 
+    set rl_remoteLoggingPool logging-pool   ; #(String) Name of LTM pool to use for remote logging servers 
+    set rl_remoteLogProtocol UDP            ; #(String) UDP or TCP
+    set rl_iruleBlockResponseCode 403       ; #(Integer) HTTP status code to report when an iRule block has taken place  
+    set rl_asmBlockResponseCode 403         ; #(Integer) HTTP status code to report when an ASM/WAF block has taken place
+    set rl_debugLog 1                       ; #(Boolean) 0 = debug logging disabled, 1 = debug logging enabled, 
     ###User-Edit Variables end###
 }
 }
-when CLIENT_ACCEPTED priority 540 {
+when CLIENT_ACCEPTED priority 1000 {
     catch { set rl_hsl [HSL::open -proto $rl_remoteLogProtocol -pool $rl_remoteLoggingPool] }
 }
 
 ## Run at priority 1000 to be the very last iRule to execute in this event.
 when HTTP_REQUEST priority 1000 {
+catch {
+    ## Check if data collector iRule has run for this HTTP request. 
+    if { !([info exists dc_vip]) } { 
+        ## If $dc_vip value does not exist exit gracefully.
+        if  { $rl_debugLog equals 1 } { log local0. "No data collector values found for request: [IP::client_addr]:[TCP::client_port]-[IP::local_addr]:[TCP::local_port]" }
+        set rl_exit 1
+        return 
+    } 
 
+    ## Set base log string with fields from data_collector iRule. All HTTP requests will have these fields logged.  
+    set rl_logstring "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",reqLength=\"$dc_req_length\",vs=\"$dc_virtual_server\",referrer=\"$dc_http_referrer\",cType=\"$dc_http_content_type\",userAgent=\"$dc_http_user_agent\",httpv=\"$dc_http_version\""
 
     ## First Log Generation Check - If another iRule has responded to this request, check the variables we have collected so far and send a partial log.
     if {[HTTP::has_responded]} {
-        ##TODO: reorder these statements so that if its the 2nd HTTP request only the mml_b variables would be set. otherwise its the same 
-        ## Check if data collector iRule has run for this HTTP request.
-                if { !([info exists dc_vip]) && !([string length $dc_vip] >= 1) } { 
-                    ## If $dc_vip value does not exist or is less than 1 character, exit gracefully.
-                    if  { $rl_debugLog equals 1} { log local0. "No data collector values found for request: [IP::client_addr]:[TCP::client_port]-[IP::local_addr]:[TCP::local_port] [HTTP::method] [HTTP::uri]" }
-                    return 
-                }
-                
-        ## Set base log string with fields from data_collector iRule. All HTTP requests will have these fields logged.  
-        set rl_logstring "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",reqLength=\"$dc_req_length\",vs=\"$dc_virtual_server\",referrer=\"$dc_http_referrer\",cType=\"$dc_http_content_type\",userAgent=\"$dc_http_user_agent\",httpv=\"$dc_http_version\",statusCode=\"$rl_iruleBlockResponseCode\",vip=\"$dc_vip\",iRuleBlock=\"True\""
+                        
+        ## Append base log string with fields indicating an iRule block has occurred.  
+        append rl_logstring ",statusCode=\"$rl_iruleBlockResponseCode\",vip=\"$dc_vip\",iRuleBlock=\"True\""
 
         ## First Check for additional information to log: Is first HTTP request in TCP session? 
         if { [HTTP::request_num] == 1 } { 
@@ -59,7 +62,7 @@ when HTTP_REQUEST priority 1000 {
             ## Second Check for additional information to log: Has latency data been collected? 
             if { ([info exists mml_b]) && ([string length $mml_b] >= 1) } { 
             
-                ## Add latency data to the log string
+                ## Add TCP + TLS latency data to the log string
                 append rl_logstring ",cTCP=\"$mml_a\",cTLS=\"$mml_b\""
             }
         } else { 
@@ -77,109 +80,108 @@ when HTTP_REQUEST priority 1000 {
 
     }
 }
+}
 
 
-# when ASM_REQUEST_BLOCKING {
+when ASM_REQUEST_BLOCKING priority 1000 {
+catch {
+    ## Second Log Generation Check - If ASM blocked this request, check the variables we have collected so far and send a partial log.
+    ## Requires ASM policy "raise iRule event" setting to be enabled in ASM policy. 
 
-#     ## Second Log Generation Check - ASM Block
-#     #Requires ASM policy "raise iRule event" setting to be enabled in ASM policy. This event is raised when ASM has triggered a block action for the request. If so, send a log with the request data we have.
-#     #Exit gracefully if request does not contain required server timing enable header.
-#     catch {
-#     if { $rl_debugTiming equals 0 } {
-#     return
-#     }
-#     # Log additional connection level stats if this is the first http request In this TCP session. 
-#     if { $rl_http_req_count equals 1 } {
+    ## Check if this event should exit due to missing data.  
+    if { ([info exists rl_exit]) } {
+    return
+    }
 
-#         set rl_a [expr { $rl_CLIENT_ACCEPTED - $rl_FLOW_INIT } ] ; #measure time spent in Client TCP 3WHS. 
-#         set rl_b [expr { $rl_CLIENTSSL_HANDSHAKE - $rl_CLIENTSSL_CLIENTHELLO } ] ; #measure time spent in client side ssl handshake.
-#         set rl_c [expr { $rl_ASM_REQUErl_DONE - $rl_HTTP_REQUEST } ] ; #measure time spent in F5 HTTP request processing time.
+    ## Append base log string with fields indicating an ASM block has occurred.  
+    append rl_logstring ",statusCode=\"$rl_asmBlockResponseCode\",vip=\"$dc_vip\",asmBlock=\"True\""
+
+    ## First Check for additional information to log: Is first HTTP request in TCP session? 
+    if { [HTTP::request_num] == 1 } { 
         
-#         if { $rl_enableRemoteLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             HSL::send $rl_hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$rl_a\",cTLS=\"$rl_b\",f5Req=\"$rl_c\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",vs=\"$rl_virtual_server\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",statusCode=\"$rl_asmBlockResponseCode\",vip=\"$rl_vip\",asmBlock=\"True\"" 
-#         } 
+        ## This is the first HTTP request in this TCP session. Add extra TCP latency information into the log string.
+        append rl_logstring ",tcpReuse=\"False\"" 
         
-#         if { $rl_enableLocalLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$rl_a\",cTLS=\"$rl_b\",f5Req=\"$rl_c\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",vs=\"$rl_virtual_server\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",statusCode=\"$rl_asmBlockResponseCode\",vip=\"$rl_vip\",asmBlock=\"True\""
-#         } 
-# } else {
-#         set rl_c [expr { $rl_ASM_REQUErl_DONE - $rl_HTTP_REQUEST } ] ; #measure time spent in F5 HTTP request processing time.
-
-#         #Only log request Level stats when this is not the first http Request in the TCP session 
-#         if { $rl_enableRemoteLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             HSL::send $rl_hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"True\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",f5Req=\"$rl_c\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",vs=\"$rl_virtual_server\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",statusCode=\"$rl_asmBlockResponseCode\",vip=\"$rl_vip\",asmBlock=\"True\""
-#         }
+        ## Second Check for additional information to log: Has latency data been collected? 
+        if { ([info exists mml_b]) && ([string length $mml_b] >= 1) } { 
         
-#         if { $rl_enableLocalLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"True\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",f5Req=\"$rl_c\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",vs=\"$rl_virtual_server\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",statusCode=\"$rl_asmBlockResponseCode\",vip=\"$rl_vip\",asmBlock=\"True\""
-#         }
-#         }
-#      }
-# }
+            ## Add TCP + TLS + request latency data to the log string
+            append rl_logstring ",cTCP=\"$mml_a\",cTLS=\"$mml_b\",f5Req=\"$mml_c\""
+        }
+    } else { 
+        ## This is NOT the first HTTP request in this TCP session.
+        append rl_logstring ",tcpReuse=\"True\""  
 
-# when HTTP_RESPONSE_RELEASE {
-#     #Exit gracefully if request does not contain required server timing enable header.
-#     catch {
-#     if { $rl_debugTiming equals 0 } {
-#     return
-#     }
+        ## Second Check for additional information to log: Has latency data been collected? 
+        if { ([info exists mml_c]) && ([string length $mml_c] >= 1) } {        
+            
+            ## Add request-only latency data to the log string
+            append rl_logstring ",f5Req=\"$mml_c\""
+        }
+        }
 
-#     set rl_HTTP_RESPONSE_RELEASE [clock clicks -milliseconds]
+        ## Third Check for additional information to log: Has traceparent ID been generated?
+        if { ([info exists traceparent]) && ([string length $traceparent] >= 1) } {
+            append rl_logstring ",traceparent=\"$traceparent\""
+        }
 
-#     # catch if important stats are missing and exit gracefully
-#     if { ($rl_HTTP_REQUErl_RELEASE equals 0) || ($rl_ASM_REQUErl_DONE equals 0 ) } {
-#         #Check if local logging is enabled before error messages are logged. 
-#         if { $rl_enableLocalLog equals 1 and $rl_triggerLogging equals 1 } {
-#         log local0. "Stats Collection Skipped. Request likely blocked or ASM bypassed,tcpID=$rl_tcpID,Start_Client_IP=[IP::client_addr],Start_Client_Port=[TCP::client_port]" 
-#         }
-#         return 
-#     }
+        ## Send the log to remote log server 
+        HSL::send $rl_hsl $rl_logstring
+        if  { $rl_debugLog equals 1} { log local0. "$rl_logstring" }
 
-#     # Log additional connection level stats if this is the first http request In this TCP session. 
-#     if { $rl_http_req_count equals 1 } {
+        ## Set flag indicating ASM has blocked request and a log was sent.
+        set rl_exit 1 
+}
+}
 
-#         set rl_a [expr { $rl_CLIENT_ACCEPTED - $rl_FLOW_INIT } ] ; #measure time spent in Client TCP 3WHS. 
-#         set rl_b [expr { $rl_CLIENTSSL_HANDSHAKE - $rl_CLIENTSSL_CLIENTHELLO } ] ; #measure time spent in client side ssl handshake.
-#         set rl_c [expr { $rl_ASM_REQUErl_DONE - $rl_HTTP_REQUEST } ] ; #measure time spent in F5 HTTP request processing time. 
-#         set rl_d [expr { $rl_SERVER_CONNECTED - $rl_LB_SELECTED } ] ; #measure time spent in Server TCP 3WHS.
-#         set rl_e [expr { $rl_SERVERSSL_HANDSHAKE - $rl_SERVERSSL_CLIENTHELLO_SEND } ] ; #measure time spent in side ssl handshake.
-#         set rl_f [expr { $rl_HTTP_RESPONSE - $rl_HTTP_REQUErl_RELEASE } ] ; #measure time spent in pool HTTP response latency.
-#         set rl_g [expr { $rl_HTTP_RESPONSE_RELEASE - $rl_HTTP_RESPONSE } ] ; #measure time spent in F5 HTTP response processing time. 
-#         set rl_overhead [expr { $rl_c + $rl_g } ] ; #Combine HTTP Request and Response F5 processing time 
+when HTTP_RESPONSE_RELEASE priority 1000 {
+catch {
+    ## Third Log Generation Check - HTTP response is about to sent to client.
 
+    ## Check if this event should exit due to missing data or ASM blocked request.  
+    if { ([info exists rl_exit]) } {
+    return
+    }
+
+    ## If 2xx logging is enabled and if this is a 2xx request exit gracefully. 
+    if { ($rl_skip2xxlogging == 1) && ( $dc_http_status starts_with 2) } {
+    return
+    }
+
+    ## Add pool and HTTP response data to log string
+    append rl_logstring ",statusCode=\"$dc_http_status\",http.response_content_length=\"$dc_res_length\",pool=\"$dc_pool\""
+
+    ## First Check for additional information to log: Is first HTTP request in TCP session? 
+    if { [HTTP::request_num] == 1 } { 
         
-#         if { $rl_enableInsertResponseHeader equals 1 and $rl_triggerInsertHeader equals 1 } { 
-#             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.   
-#             HTTP::header insert $rl_serverTimingHeaderName "waf, overhead;dur=$rl_overhead, origin;dur=$rl_f, client-ssl;dur=$rl_b, server-ssl;dur=$rl_e, client-tcp;dur=$rl_a, server-tcp;dur=$rl_d" 
-#         }   
+        ## This is the first HTTP request in this TCP session. Add extra TCP latency information into the log string.
+        append rl_logstring ",tcpReuse=\"False\"" 
 
-#         if { $rl_enableRemoteLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             HSL::send $rl_hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$rl_a\",cTLS=\"$rl_b\",f5Req=\"$rl_c\",sTCP=\"$rl_d\",sTLS=\"$rl_e\",poolRes=\"$rl_f\",f5Res=\"$rl_g\",overhead=\"$rl_overhead\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",statusCode=\"$rl_http_status\",resLength=\"$rl_res_length\",vs=\"$rl_virtual_server\",pool=\"$rl_pool\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",vip=\"$rl_vip\"" 
-#         } 
+        ## Second Check for additional information to log: Has latency data been collected? 
+        if { ([info exists mml_b]) && ([string length $mml_b] >= 1) } { 
         
-#         if { $rl_enableLocalLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"False\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",cTCP=\"$rl_a\",cTLS=\"$rl_b\",f5Req=\"$rl_c\",sTCP=\"$rl_d\",sTLS=\"$rl_e\",poolRes=\"$rl_f\",f5Res=\"$rl_g\",overhead=\"$rl_overhead\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",statusCode=\"$rl_http_status\",resLength=\"$rl_res_length\",vs=\"$rl_virtual_server\",pool=\"$rl_pool\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",vip=\"$rl_vip\"" 
-#         } 
-# } else {
-#         #Only log request Level stats when this is not the first http Request in the TCP session.
-#         set rl_c [expr { $rl_ASM_REQUErl_DONE - $rl_HTTP_REQUEST } ] ; #measure time spent in F5 HTTP request processing time.
-#         set rl_f [expr { $rl_HTTP_RESPONSE - $rl_HTTP_REQUErl_RELEASE } ] ; #measure time spent in pool HTTP response latency.
-#         set rl_g [expr { $rl_HTTP_RESPONSE_RELEASE - $rl_HTTP_RESPONSE } ] ; #measure time spent in F5 HTTP response processing time.
-#         set rl_overhead [expr { $rl_c + $rl_g } ] ; #Combine HTTP Request and Response F5 processing time 
+            ## Add TCP + TLS + request + response latency data to the log string
+            append rl_logstring ",cTCP=\"$mml_a\",cTLS=\"$mml_b\",f5Req=\"$mml_c\",sTCP=\"$mml_d\",sTLS=\"$mml_e\",poolRes=\"$mml_f\",f5Res=\"$mml_g\",overhead=\"$mml_overhead\""
+        }
+    } else { 
+        ## This is NOT the first HTTP request in this TCP session.
+        append rl_logstring ",tcpReuse=\"True\""  
 
-#         if { $rl_enableInsertResponseHeader equals 1 and $rl_triggerInsertHeader equals 1 } { 
-#             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.   
-#             HTTP::header insert $rl_serverTimingHeaderName "waf, overhead;dur=$rl_overhead, origin;dur=$rl_f" 
-#         } 
-        
-#         if { $rl_enableRemoteLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             HSL::send $rl_hsl "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"True\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",f5Req=\"$rl_c\",poolRes=\"$rl_f\",f5Res=\"$rl_g\",overhead=\"$rl_overhead\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",statusCode=\"$rl_http_status\",resLength=\"$rl_res_length\",vs=\"$rl_virtual_server\",pool=\"$rl_pool\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",vip=\"$rl_vip\"" 
-#         }
-        
-#         if { $rl_enableLocalLog equals 1 and $rl_triggerLogging equals 1 } { 
-#             log local0. "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$rl_tcpID\",tcpReuse=\"True\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",f5Req=\"$rl_c\",poolRes=\"$rl_f\",f5Res=\"$rl_g\",overhead=\"$rl_overhead\",uri=\"$rl_http_uri\",host=\"$rl_http_host\",method=\"$rl_http_method\",reqLength=\"$rl_req_length\",statusCode=\"$rl_http_status\",resLength=\"$rl_res_length\",vs=\"$rl_virtual_server\",pool=\"$rl_pool\",referrer=\"$rl_http_referrer\",cType=\"$rl_http_content_type\",userAgent=\"$rl_http_user_agent\",httpv=\"$rl_http_version\",vip=\"$rl_vip\"" 
-#         }
-#         }
- 
-# }
-# }
+        ## Second Check for additional information to log: Has latency data been collected? 
+        if { ([info exists mml_c]) && ([string length $mml_c] >= 1) } {        
+            
+            ## Add request + response latency data to the log string
+            append rl_logstring ",f5Req=\"$mml_c\",poolRes=\"$mml_f\",f5Res=\"$mml_g\",overhead=\"$mml_overhead\""
+        }
+        }
+
+        ## Third Check for additional information to log: Has traceparent ID been generated?
+        if { ([info exists traceparent]) && ([string length $traceparent] >= 1) } {
+            append rl_logstring ",traceparent=\"$traceparent\""
+        }
+
+        ## Send the log to remote log server 
+        HSL::send $rl_hsl $rl_logstring
+        if  { $rl_debugLog equals 1} { log local0. "$rl_logstring" }
+}
+}

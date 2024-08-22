@@ -1,14 +1,15 @@
-# Made with heart by Matt Stovall 2/2024. 
-# This iRule calculates latency at various TCP, TLS, HTTP, ASM events and caculates the latency between each stage. Others iRules can query this information stored in variables. 
+## Made with heart by Matt Stovall 2/2024. 
+## Version 1.0
+## This iRule calculates latency at various TCP, TLS, HTTP, ASM events and calculates the latency between each stage. Others iRules can query this information stored in variables. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
 #See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
-#Version 1.0
-#Modular iRule dependency: none
 
-#Requirements: 
-#Event CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
-#Event SERVERSSL_HANDSHAKE requires serverssl profile on virtual
-#Requires ASM profile on virtual server with iRule events enabled (this is common for most ASM deployments)
+## Modular iRule dependency: none
+
+## Requirements: 
+## Event CLIENTSSL_HANDSHAKE requires clientssl profile on virtual
+## Event SERVERSSL_HANDSHAKE requires serverssl profile on virtual
+## Requires ASM profile on virtual server with iRule events enabled (this is common for most ASM deployments)
 
 when FLOW_INIT priority 10 {
 catch {
