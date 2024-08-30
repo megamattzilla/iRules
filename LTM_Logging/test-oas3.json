@@ -1,0 +1,155 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Discovered API from F5 Syslog",
+      "version": "1.0.0",
+      "description": "API discovered from F5 syslog messages"
+    },
+    "paths": {
+      "/": {
+        "get": {
+          "summary": "GET request to /",
+          "responses": {
+            "200": {
+              "description": "Successful response (Status: 200)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "x-content-types": [],
+          "x-pools": [
+            "/Common/nginx-https 10.6.0.100 443",
+            "/Common/nginx-https 10.6.0.102 443",
+            "/Common/nginx-https 10.6.0.101 443"
+          ]
+        },
+        "patch": {
+          "summary": "patch request to /",
+          "responses": {
+            "200": {
+              "description": "Successful response (Status: 200)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "x-content-types": [],
+          "x-pools": [
+            "/Common/nginx-https 10.6.0.101 443"
+          ]
+        }
+      },
+      "/auth/login": {
+        "post": {
+          "summary": "POST request to /auth/login",
+          "responses": {
+            "404": {
+              "description": "Client error (Status: 404)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "x-content-types": [],
+          "x-pools": [
+            "/Common/nginx-https 10.6.0.102 443"
+          ]
+        }
+      },
+      "/doesntexist": {
+        "get": {
+          "summary": "GET request to /doesntexist",
+          "responses": {
+            "404": {
+              "description": "Client error (Status: 404)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "x-content-types": [],
+          "x-pools": [
+            "/Common/nginx-https 10.6.0.100 443"
+          ]
+        }
+      },
+      "/wipe/entire/internet": {
+        "delete": {
+          "summary": "DELETE request to /wipe/entire/internet",
+          "responses": {
+            "405": {
+              "description": "Client error (Status: 405)",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "x-content-types": [],
+          "x-pools": [
+            "/Common/nginx-https 10.6.0.101 443"
+          ]
+        }
+      }
+    }
+  }
