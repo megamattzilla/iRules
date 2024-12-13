@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. Traceparent code borrowed from Granville Schmidt.
-## Version 1.0 
+## version 1.1.0 Updated 12/2024
 
 # This iRule generates a unique traceparent ID and inserts that value as a HTTP request header. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
@@ -106,7 +106,7 @@ proc try_propagate_traceparent_header {traceparent_header} {
 
 
 when HTTP_REQUEST priority 510 {
-catch {
+if {[catch {
   if {[HTTP::header count traceparent] == 1 && [call is_safe_to_propagate_trace_context]} then {
     set traceparent [call try_propagate_traceparent_header [HTTP::header "traceparent"]]
     if {$traceparent eq ""} {
@@ -129,5 +129,5 @@ catch {
   # Ref: https://www.w3.org/TR/trace-context-1/#other-risks
   HTTP::header remove traceparent
   HTTP::header insert traceparent $traceparent
-}
+} err]} { log local0.error "Error in HTTP_REQUEST: $err" }
 }

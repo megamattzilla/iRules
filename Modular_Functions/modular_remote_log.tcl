@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. 
-## version 1.0
+## version 1.1.0 Updated 12/2024
 
 ## This iRule: 
 ##  1.  Checks for presence od existing variables containing information populated from other modular iRules. 
@@ -17,25 +17,25 @@
 ##      optional:   traceparent
 
 when FLOW_INIT  {
-catch {
+if {[catch {
 
     ###User-Edit Variables start###
     set rl_skip2xxlogging 0                 ; #(Boolean) 0 = log all requests, 1 = only log 3xx, 4xx, 5xx HTTP response codes. 
-    set rl_remoteLoggingPool logging-pool   ; #(String) Name of LTM pool to use for remote logging servers 
+    set rl_remoteLoggingPool irule-logging   ; #(String) Name of LTM pool to use for remote logging servers 
     set rl_remoteLogProtocol UDP            ; #(String) UDP or TCP
     set rl_iruleBlockResponseCode 403       ; #(Integer) HTTP status code to report when an iRule block has taken place  
     set rl_asmBlockResponseCode 403         ; #(Integer) HTTP status code to report when an ASM/WAF block has taken place
     set rl_debugLog 0                       ; #(Boolean) 0 = debug logging disabled, 1 = debug logging enabled, 
     ###User-Edit Variables end###
-}
+} err]} { log local0.error "Error in FLOW_INIT: $err" }
 }
 when CLIENT_ACCEPTED priority 1000 {
-    catch { set rl_hsl [HSL::open -proto $rl_remoteLogProtocol -pool $rl_remoteLoggingPool] }
+if {[catch { set rl_hsl [HSL::open -proto $rl_remoteLogProtocol -pool $rl_remoteLoggingPool] } err]} { log local0.error "Error in CLIENT_ACCEPTED: $err" }
 }
 
 ## Run at priority 1000 to be the very last iRule to execute in this event.
 when HTTP_REQUEST priority 1000 {
-catch {
+if {[catch {
     ## Check if data collector iRule has run for this HTTP request. 
     if { !([info exists dc_vip]) } { 
         ## If $dc_vip value does not exist exit gracefully.
@@ -45,7 +45,12 @@ catch {
     } 
 
     ## Set base log string with fields from data_collector iRule. All HTTP requests will have these fields logged.  
-    set rl_logstring "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",reqLength=\"$dc_req_length\",vs=\"$dc_virtual_server\",referrer=\"$dc_http_referrer\",cType=\"$dc_http_content_type\",userAgent=\"$dc_http_user_agent\",httpv=\"$dc_http_version\""
+    set rl_logstring "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",vs=\"$dc_virtual_server\",httpv=\"$dc_http_version\""
+
+    ## Add user-defined HTTP headers to base log string
+    foreach user_defined_header [array names dc_user_defined_headers] {
+    append rl_logstring ",http.${user_defined_header}=\"$dc_user_defined_headers($user_defined_header)\""
+    }
 
     ## First Log Generation Check - If another iRule has responded to this request, check the variables we have collected so far and send a partial log.
     if {[HTTP::has_responded]} {
@@ -79,12 +84,12 @@ catch {
         if  { $rl_debugLog equals 1} { log local0. "$rl_logstring" }
 
     }
-}
+} err]} { log local0.error "Error in HTTP_REQUEST: $err" }
 }
 
 
 when ASM_REQUEST_BLOCKING priority 1000 {
-catch {
+if {[catch {
     ## Second Log Generation Check - If ASM blocked this request, check the variables we have collected so far and send a partial log.
     ## Requires ASM policy "raise iRule event" setting to be enabled in ASM policy. 
 
@@ -131,11 +136,11 @@ catch {
 
         ## Set flag indicating ASM has blocked request and a log was sent.
         set rl_exit 1 
-}
+} err]} { log local0.error "Error in ASM_REQUEST_BLOCKING: $err" }
 }
 
 when HTTP_RESPONSE_RELEASE priority 1000 {
-catch {
+if {[catch {
     ## Third Log Generation Check - HTTP response is about to sent to client.
 
     ## Check if this event should exit due to missing data or ASM blocked request.  
@@ -183,5 +188,5 @@ catch {
         ## Send the log to remote log server 
         HSL::send $rl_hsl $rl_logstring
         if  { $rl_debugLog equals 1} { log local0. "$rl_logstring" }
-}
+} err]} { log local0.error "Error in HTTP_RESPONSE_RELEASE: $err" }
 }

@@ -1,5 +1,6 @@
 ## Made with heart by Matt Stovall 2/2024. 
-## Version 1.0
+## version 1.1.0 Updated 12/2024
+
 ## This iRule calculates latency at various TCP, TLS, HTTP, ASM events and calculates the latency between each stage. Others iRules can query this information stored in variables. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
 #See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
@@ -12,7 +13,7 @@
 ## Requires ASM profile on virtual server with iRule events enabled (this is common for most ASM deployments)
 
 when FLOW_INIT priority 10 {
-catch {
+if {[catch {
     ###User-Edit Variables start###
     set mml_measureWithoutHeader 1 ; #1 = Measure all HTTP requests, 0 = only measure latency for HTTP requests that contain HTTP header name $mml_clientEnableTimingHeaderName and header value $mml_clientEnableTimingHeaderValue
     set mml_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
@@ -37,7 +38,7 @@ catch {
     set mml_HTTP_RESPONSE 0 
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
-}
+} err]} { log local0.error "Error in FLOW_INIT: $err" }
 }
 
 when CLIENT_ACCEPTED priority 10 {
@@ -51,13 +52,13 @@ catch { set mml_CLIENTSSL_HANDSHAKE [clock clicks -milliseconds] }
 }
 
 when HTTP_REQUEST priority 10 {
-catch { 
+if {[catch {
 #Check if this HTTP request indicates further timing events should be collected. 
 if { $mml_measureWithoutHeader equals 1 or [HTTP::header value $mml_clientEnableTimingHeaderName ] equals $mml_clientEnableTimingHeaderValue } {
     set mml_debugTiming 1
     set mml_HTTP_REQUEST [clock clicks -milliseconds]
 } 
-}
+} err]} { log local0.error "Error in HTTP_REQUEST: $err" }
 }
 
 
@@ -85,7 +86,7 @@ catch { if { $mml_debugTiming equals 1 } { set mml_HTTP_RESPONSE [clock clicks -
 }
 
 when HTTP_REQUEST priority 999 {
-catch {
+if {[catch {
     #Run at priority 999 (almost very last) to see if another iRule has responded to the HTTP request. If so, generate partial latency data. 
     
     #Exit gracefully if request does not contain required server timing enable header.
@@ -119,12 +120,12 @@ catch {
     set mml_debugTiming 0
      }
 
-}
+} err]} { log local0.error "Error in HTTP_REQUEST: $err" }
 }
 
 
 when ASM_REQUEST_BLOCKING priority 520 {
-catch { 
+if {[catch {
     #Requires ASM policy "raise iRule event" setting to be enabled in ASM policy. This event is raised when ASM has triggered a block action for the request.
     #Exit gracefully if request does not contain required server timing enable header.
 
@@ -156,10 +157,10 @@ catch {
     set mml_HTTP_RESPONSE 0 
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
-}
+} err]} { log local0.error "Error in ASM_REQUEST_BLOCKING: $err" }
 }
 when HTTP_RESPONSE_RELEASE priority 520 {
-catch { 
+if {[catch {
     #Exit gracefully if request does not contain required server timing enable header.
 
     if { $mml_debugTiming equals 0 } {
@@ -219,5 +220,5 @@ catch {
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
 }
-}
+} err]} { log local0.error "Error in HTTP_RESPONSE_RELEASE: $err" }
 }
