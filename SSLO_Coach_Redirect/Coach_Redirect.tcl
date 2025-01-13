@@ -1,5 +1,5 @@
 ## Made with care by Matt Stovall 1/2025.
-## Version 1.0
+## Version 1.0.1
 ## This iRule: 
 ##  1. Checks if a HTTP request is made to a GenAI LLM website
 ##  2. Redirects the HTTP request (per website, per IP, and per User) to an internal URL
@@ -43,7 +43,7 @@ if {[catch {
     }
 
     ## Check if iRule table exists for this HTTP host and IP_username
-    set cr_tableLookup [table lookup -notouch -subtable $cr_httpHost [IP::client_addr]_${cr_userName}]
+    set cr_tableLookup [table lookup -subtable $cr_httpHost [IP::client_addr]_${cr_userName}]
     if { [string length $cr_tableLookup] == 1 } {
        if { $cr_debugLogging == 1 } { log local0.debug "Allow website: $cr_httpHost IP: [IP::client_addr] user: $cr_userName" } 
        return 0 
