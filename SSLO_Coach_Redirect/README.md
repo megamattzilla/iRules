@@ -11,7 +11,8 @@ This iRule:
 #### 1.1.1
 
 Changes:
-- Replaced the exact match datagroup variable name `cr_genAIDatagroupName` with `cr_genAIDatagroupNameExact`.  
+- Replaced the exact match datagroup variable name `cr_genAIDatagroupName` with `cr_genAIDatagroupNameExact`.
+- Changed HTTP_REQUEST event priority from default 500 to 450 so that it runs right before default priority.    
 
 New Feature:  
 - Added datagroup that uses an ends_with operator so that wildcard domains can be used. 

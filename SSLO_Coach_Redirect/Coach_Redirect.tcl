@@ -10,7 +10,7 @@
 ## See https://github.com/megamattzilla/iRules/blob/master/SSLO_Coach_Redirect for more details
 ## Requirements: Create string-type datagroup with name specified in static::cr_genAIDatagroupNameExact with exact names of GenAI LLM websites to match. 
 
-when HTTP_REQUEST {
+when HTTP_REQUEST priority 450 {
 if {[catch {
 
     ### User-Edit Variables start ###
