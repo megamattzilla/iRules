@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. 
-## version 1.1.0 Updated 12/2024
+## version 1.1.1 Updated 2/2025
 
 ## This iRule: 
 ##  1.  Checks for presence od existing variables containing information populated from other modular iRules. 
@@ -42,10 +42,14 @@ if {[catch {
         if  { $rl_debugLog equals 1 } { log local0. "No data collector values found for request: [IP::client_addr]:[TCP::client_port]-[IP::local_addr]:[TCP::local_port]" }
         set rl_exit 1
         return 
-    } 
+    }
+
+    ## Create timestamp variable of current time in format $Year-$Month-$DayT$Hour:$Minute:$Second:$MillisecondZ 
+    set rl_clockMilliseconds [clock clicks -milliseconds]
+    set rl_timestamp [format "%s.%03dZ" [clock format [expr {$rl_clockMilliseconds / 1000}] -format "%Y-%m-%dT%H:%M:%S"] [expr {$rl_clockMilliseconds % 1000}] ]
 
     ## Set base log string with fields from data_collector iRule. All HTTP requests will have these fields logged.  
-    set rl_logstring "hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",vs=\"$dc_virtual_server\",httpv=\"$dc_http_version\""
+    set rl_logstring "timestamp=\"$rl_timestamp\",hostname=\"$static::tcl_platform(machine)\",tcpID=\"$dc_tcpID\",cIP=\"[IP::client_addr]\",cPort=\"[TCP::client_port]\",uri=\"$dc_http_uri\",host=\"$dc_http_host\",method=\"$dc_http_method\",vs=\"$dc_virtual_server\",httpv=\"$dc_http_version\""
 
     ## Add user-defined HTTP headers to base log string
     foreach user_defined_header [array names dc_user_defined_headers] {

@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. Traceparent code borrowed from Granville Schmidt.
-## version 1.1.0 Updated 12/2024
+## version 1.1.1 Updated 2/2025
 
 # This iRule generates a unique traceparent ID and inserts that value as a HTTP request header. 
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 

@@ -1,4 +1,4 @@
-### Latest Version: 1.1.0
+### Latest Version: 1.1.1
 
 ![alt text](2024-08-15_13-29-20.png)
 
@@ -12,6 +12,12 @@
 |  modular_traceparent.tcl  |  n/a  |     |  | | Yes|   
 
 #### Version History
+
+
+#### 1.1.1
+
+New Features:  
+- Added timestamp log field to remote log in format $Year-$Month-$DayT$Hour:$Minute:$Second:$MillisecondZ.  
 
 #### 1.1.0
 

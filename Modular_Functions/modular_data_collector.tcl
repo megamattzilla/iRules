@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024. 
-## version 1.1.0 Updated 12/2024.
+## version 1.1.1 Updated 2/2025
 
 ## This iRule sets iRule session variables at various events with data values of existing TCP, HTTP, TLS variables. These new variables can be recalled and logged by other iRules. 
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
