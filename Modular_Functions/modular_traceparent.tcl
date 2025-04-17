@@ -1,8 +1,8 @@
 ## Made with heart by Matt Stovall 2/2024. Traceparent code borrowed from Granville Schmidt.
-## version 1.1.1 Updated 2/2025
+## version 1.1.2 Updated 4/2025
 
-# This iRule generates a unique traceparent ID and inserts that value as a HTTP request header. 
-#All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements. 
+# This iRule generates a unique traceparent ID and inserts that value as a HTTP request header.
+#All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
 #See https://github.com/megamattzilla/iRules/blob/master/Modular_Functions/README.md for more details
 
 #Modular iRule dependency: none
@@ -12,7 +12,7 @@
 #   Level: 1
 #   W3C Recommendation 06 February 2020
 #
-# Author: 
+# Author:
 #
 # Automated test harnes: https://github.com/w3c/trace-context/tree/master/test
 #
@@ -107,6 +107,7 @@ proc try_propagate_traceparent_header {traceparent_header} {
 
 when HTTP_REQUEST priority 510 {
 if {[catch {
+if {[HTTP::has_responded]} { return }
   if {[HTTP::header count traceparent] == 1 && [call is_safe_to_propagate_trace_context]} then {
     set traceparent [call try_propagate_traceparent_header [HTTP::header "traceparent"]]
     if {$traceparent eq ""} {
@@ -129,5 +130,5 @@ if {[catch {
   # Ref: https://www.w3.org/TR/trace-context-1/#other-risks
   HTTP::header remove traceparent
   HTTP::header insert traceparent $traceparent
-} err]} { log local0.error "Error in HTTP_REQUEST: $err" }
+} err] == 1 } { log local0.error "Error in HTTP_REQUEST: $err" }
 }
