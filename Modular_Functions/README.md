@@ -1,4 +1,4 @@
-### Latest Version: 1.1.1
+### Latest Version: 1.1.2
 
 ![alt text](2024-08-15_13-29-20.png)
 
