@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 5/2025.
-## version 0.5
+## version 1.0.0
 
 ##
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
@@ -10,29 +10,28 @@ array unset asr_apmInventory
 
 ###User-Edit Variables start###
 set static::asr2_debugLogging 1 ; #Set to 1 to enable debug logging. Set to 0 to disable debug logging.
-array set asr_apmInventory {
-    azure-scus-f5demo-prod-B-01.local 192.168.113.5
-    azure-scus-f5demo-prod-B-02.local 192.168.113.6
-}
 set static::asr_sidebandport 514 ; #destination port of peer APM devices
 set static::asr_sidebandIdleTimeout 30 ; #the time in seconds to leave the connection open if it is unused.
 set static::asr_sidebandSendTimeout 100 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.
 set static::asr_sidebandConnectTimeout 50 ; #the time in milliseconds to wait to establish the connection to the sideband pool member.
 set static::asr_sendKey "AES 128 43047ad71173be644498b98de6a11fe3"
+set static::asr_apmTrustKey "53047ad71173be644498b98de6a11fe3" ; #Used to verify the sideband to peer APM devices if needed in peer Access Policy VPE.
 set static::asr_apmVars "session.server.landinguri session.server.network.name session.user.clientip session.logon.last.username session.user.agent session.policy.result" ; #Type: String #Space separated name(s) of APM vars to send to remote APM. Name and value of variable will be logged.
 set static::asr_apmInactivityTimeout 3600; #longer session.inactivity_timeout for peer APM devices
 ###User-Edit Variables end###
 
+set asr_apmInventory [class get asr_apm_inventory]
+
 set static::asr_apmTargets ""
 set asr_localmachinepresent 0
 #compute APM group without self
-foreach asr_apm [array names asr_apmInventory] {
-    if { $asr_apm != $static::tcl_platform(machine) } {
-        if { $static::asr2_debugLogging == 1 } {log local0.debug "Adding peer machine $asr_apm to APM targets" }
-        append static::asr_apmTargets "$asr_apmInventory($asr_apm) "
+foreach asr_apm $asr_apmInventory {
+    if { [lindex $asr_apm 0] != $static::tcl_platform(machine) } {
+        if { $static::asr2_debugLogging == 1 } {log local0.debug "Adding peer machine [lindex $asr_apm 0] to APM targets" }
+        append static::asr_apmTargets "[lindex $asr_apm 1] "
     } else {
     set asr_localmachinepresent 1
-if { $static::asr2_debugLogging == 1 } {log local0.debug "Found local machine $static::tcl_platform(machine) in inventory" }
+if { $static::asr2_debugLogging == 1 } {log local0.debug "Found local machine $static::tcl_platform(machine) in inventory as expected. Safety check will pass." }
     }
 }
 
@@ -112,7 +111,7 @@ set asr_userDefinedAPMVars(session.original.sessionid) [string range [ACCESS::se
 set asr_userDefinedAPMVars(session.user.sessiontype) [string range [ACCESS::session sid] end-7 end]
 set asr_userDefinedAPMVars(session.original.apmHost) $static::tcl_platform(machine)
 set asr_userDefinedAPMVars(session.inactivity_timeout) $static::asr_apmInactivityTimeout
-set asr_userDefinedAPMVars(session.apmTrust.key) 53047ad71173be644498b98de6a11fe3
+set asr_userDefinedAPMVars(session.apmTrust.key) $static::asr_apmTrustKey
 
 ## Get list of keys from the final array
 set asr_arrayKeys [array names asr_userDefinedAPMVars]

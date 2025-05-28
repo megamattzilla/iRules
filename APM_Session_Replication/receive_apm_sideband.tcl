@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 5/2025.
-## version 0.5
+## version 1.0.0
 
 ##
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
