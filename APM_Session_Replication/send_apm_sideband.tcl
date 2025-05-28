@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 5/2025.
-## version 1.0.0
+## version 1.0.1
 
 ##
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
@@ -20,7 +20,11 @@ set static::asr_apmVars "session.server.landinguri session.server.network.name s
 set static::asr_apmInactivityTimeout 3600; #longer session.inactivity_timeout for peer APM devices
 ###User-Edit Variables end###
 
-set asr_apmInventory [class get asr_apm_inventory]
+if {[catch { set asr_apmInventory [class get asr_apm_inventory] } err] == 1 } {
+    log local0.error "Can't find datagroup in common. retrying in /Common/Shared/"
+    set asr_apmInventory [class get /Common/Shared/asr_apm_inventory]
+}
+
 
 set static::asr_apmTargets ""
 set asr_localmachinepresent 0

@@ -1,0 +1,2 @@
+"azure-scus-f5demo-prod-B-01.local" := "192.168.113.5",
+"azure-scus-f5demo-prod-B-02.local" := "192.168.113.6",

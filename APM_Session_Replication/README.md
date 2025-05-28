@@ -1,4 +1,4 @@
-### Latest Version: 1.0.0
+### Latest Version: 1.0.1
 
 ### Overview
 - This iRule provides session replication functionality for APM.
@@ -13,6 +13,8 @@
 - APM Session cookie creation and validation performed by APM as normal.
 - This iRule allows the peer APM devices to trust the MRHSession cookie value from the original APM device by swapping the MRHSession cookie value in `HTTP_REQUEST` event before APM Access Policy is evaluated with the MRHSession value of the valid pointer session.
     - The MRHSession cookie value is NOT overwritten with pointer session cookie in the event the original APM device becomes unavailable again.
+- Lightweight, sessions are replicated per-request at end of Access Policy Completion.
+    - Its possible a peer APM device could lose all APM session state (reboot) and would not be able to validate MRHSession cookies contained in the pointer sessions that were deleted. A secondary on demand bulk-replication could be created for that use-case.
 
 ### Requirements
 - APM policy with `User Identification Method` = `HTTP` which means MRHSession cookie is used for session identification.
@@ -69,6 +71,11 @@
 
 
 #### Version History
+
+#### 1.0.1
+Non-Breaking Changes:
+- Will check `/Common` partition for datagroup then try `/Common/Shared`.
+- Documentation updates.
 
 #### 1.0.0 Breaking Changes
 Breaking Changes:
