@@ -63,7 +63,7 @@
                 }
                 type string
                 }
-                ```
+            ```
 - `send_apm_sideband.tcl` iRule must be applied to the virtual server that is handling APM traffic.
 - `receive_apm_sideband.tcl` iRule must be applied to the special sideband virtual server created for this iRule.
 
