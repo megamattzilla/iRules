@@ -48,6 +48,7 @@
     - This datagroup will contain inventory of all APM devices in the local replication group to which this iRule will replicate sessions.
     - The datagroup should contain the following properties:
         - Type: `String`
+        - Name: `asr_apm_inventory` (mandatory name for now as this is special datagroup)
         - Key: `{{ $HOSTNAME of APM device }}`
             - name of the APM device from `echo $HOSTNAME` to be compared with iRule variable `$static::tcl_platform(machine)` for self-identification.
         - Value: `{{ IP }}`
@@ -68,6 +69,78 @@
             ```
 - `send_apm_sideband.tcl` iRule must be applied to the virtual server that is handling APM traffic.
 - `receive_apm_sideband.tcl` iRule must be applied to the special sideband virtual server created for this iRule.
+
+## iRule Variables
+Customize variables:
+- `send_apm_sideband.tcl`
+    - `static::asr_sidebandport`to desired port of sideband virtual server (default is 9001)
+    - `static::asr_sendKey` to a unique AES key used to encrypt session data. Must match the key used in the receive_apm_sideband iRule. Document example: https://clouddocs.f5.com/api/irules/AES__key.html
+    - `static::asr_apmTrustKey` (OPTIONAL: if re-using same Access policy as your real APM virtual servers. ignore if using a dummy access profile on your sideband virtual server that always allows the session) set to unique string (any format/length) that must match the same variable in the in VPE custom branch.
+    - `static::asr_apmInactivityTimeout` to desired idle timeout for pointer sessions (default is 3600 seconds). As these pointer sessions do not receive traffic until the original APM device becomes unavailable (at which point the standard Access Policy idle timeout applies), this timeout should be set to a value that is longer than the normal APM session idle timeout.
+ - `receive_apm_sideband.tcl`
+    - `asr_receiveKey` to a unique AES key used to decrypt session data. Must match the key used in the send_apm_sideband iRule. Document example: https://clouddocs.f5.com/api/irules/AES__key.html
+
+
+
+
+## AS3 Examples
+#### Create iRules
+```json
+"receive_apm_sideband.tcl": {
+    "class": "iRule",
+    "iRule": {
+        "url": "https://raw.githubusercontent.com/megamattzilla/iRules/refs/heads/master/APM_Session_Replication/receive_apm_sideband.tcl"
+    }
+},
+"send_apm_sideband.tcl": {
+    "class": "iRule",
+    "iRule": {
+        "url": "https://raw.githubusercontent.com/megamattzilla/iRules/refs/heads/master/APM_Session_Replication/send_apm_sideband.tcl"
+    }
+},
+```
+
+#### Create sideband virtual server
+```json
+    "ars_sideband_receiver": {
+        "class": "Service_HTTP",
+        "virtualPort": 9001,
+        "redirect80": false,
+        "virtualAddresses": [
+            "{{ ipv4_intaddress }}"
+        ],
+        "profileMultiplex": {
+            "bigip": "/Common/oneconnect"
+        },
+        "iRules": [
+            {
+                "use": "receive_apm_sideband.tcl"
+            }
+        ],
+        "profileAccess": {
+            "use": "myAccessProfile"
+        },
+        "allowVlans": [
+            "internal"
+        ]
+    },
+```
+
+
+#### Create external datagroup
+create/upload your datagroup file to a HTTPS file store. Example file at [asr_apm_inventory.txt](https://github.com/megamattzilla/iRules/blob/master/APM_Session_Replication/asr_apm_inventory.txt)
+
+```json
+    "asr_apm_inventory": {
+    "class": "Data_Group",
+    "storageType": "external",
+    "keyDataType": "string",
+    "externalFilePath": "https://raw.githubusercontent.com/megamattzilla/iRules/refs/heads/master/APM_Session_Replication/asr_apm_inventory.txt",
+    "ignoreChanges": false,
+    "separator": ":=",
+    "label": "asr_apm_inventory"
+    },
+```
 
 
 #### Version History
