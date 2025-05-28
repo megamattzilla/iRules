@@ -10,7 +10,7 @@ array unset asr_apmInventory
 
 ###User-Edit Variables start###
 set static::asr2_debugLogging 1 ; #Set to 1 to enable debug logging. Set to 0 to disable debug logging.
-set static::asr_sidebandport 514 ; #destination port of peer APM devices
+set static::asr_sidebandport 9001 ; #destination port of peer APM devices
 set static::asr_sidebandIdleTimeout 30 ; #the time in seconds to leave the connection open if it is unused.
 set static::asr_sidebandSendTimeout 100 ; #the time in milliseconds to transmit the HTTP request to the sideband pool member.
 set static::asr_sidebandConnectTimeout 50 ; #the time in milliseconds to wait to establish the connection to the sideband pool member.
