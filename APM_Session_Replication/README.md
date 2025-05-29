@@ -16,6 +16,14 @@
 - Lightweight, sessions are replicated per-request at end of Access Policy Completion.
     - Its possible a peer APM device could lose all APM session state (reboot) and would not be able to validate MRHSession cookies contained in the pointer sessions that were deleted. A secondary on demand bulk-replication could be created for that use-case.
 
+## iRule Flow
+
+### Receive APM Sideband Flow
+![alt text](2025-05-29_10-33-49.png)
+
+### Send APM Sideband Flow
+![alt text](image.png)
+
 ### Requirements
 - APM policy with `User Identification Method` = `HTTP` which means MRHSession cookie is used for session identification.
 - Enough architectural session persistence to establish a session with a single BIG-IP APM
