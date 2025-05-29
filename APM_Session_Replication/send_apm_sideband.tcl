@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 5/2025.
-## version 1.0.1
+## version 1.0.2
 
 ##
 ## All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
@@ -49,6 +49,7 @@ if { $static::asr2_debugLogging == 1 } {log local0.debug "apm targets: $static::
 }
 
 when HTTP_REQUEST {
+if {[catch {
 ## if HTTP request has no MRHSession Cookie, exit graceful to allow APM module to proceed as usual.
 if {!([HTTP::cookie exists "MRHSession"] == 1)} {
     if { $static::asr2_debugLogging == 1 } {log local0.debug "CONNID: [IP::client_addr]:[TCP::client_port] has no MRHSession Cookie"}
@@ -90,10 +91,12 @@ HTTP::cookie remove "MRHSession"
 
 ## Add MRHSession cookie for current APM session ID
 HTTP::cookie insert name "MRHSession" value $asr_newMRHcookie
+} err] == 1 } { log local0.error "Error in HTTP_REQUEST: $err" }
 }
 
-when ACCESS_POLICY_COMPLETED {
 
+when ACCESS_POLICY_COMPLETED {
+if {[catch {
 ## Check if access policy result is "allow". If not, exit graceful to skip sending a sideband request.
 if { !([ACCESS::policy result] == "allow") } {
     if { $static::asr2_debugLogging == 1 } {log local0.debug "CONNID: [IP::client_addr]:[TCP::client_port] SID [ACCESS::session sid] access policy result is not allow, exit gracefully and skip sending sideband request."}
@@ -163,4 +166,5 @@ foreach asr_peerAPM $static::asr_apmTargets {
             log local0.error "Unable to send sideband call to $asr_peerAPM. Sent $asr_sendBytes bytes out of [string length $asr_customData] bytes"
         }
 }
+} err] == 1 } { log local0.error "Error in ACCESS_POLICY_COMPLETED: $err" }
 }

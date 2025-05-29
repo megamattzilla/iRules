@@ -1,4 +1,4 @@
-### Latest Version: 1.0.1
+### Latest Version: 1.0.2
 
 ### Overview
 - This iRule provides session replication functionality for APM.
@@ -149,9 +149,16 @@ create/upload your datagroup file to a HTTPS file store. Example file at [asr_ap
     "label": "asr_apm_inventory"
     },
 ```
+## Known Issues
+- In some situations RULE_INIT might not run, which causes send_apm_sideband iRule to fail to send sideband until RULE_INIT runs again. I have some ideas to fix this in a future version.
 
 
-#### Version History
+## Version History
+
+#### 1.0.2
+Non-Breaking Changes:
+- Added catch statement to all request driven iRule events to prevent TCL errors from rejecting connections.
+- Documentation updates.
 
 #### 1.0.1
 Non-Breaking Changes:
