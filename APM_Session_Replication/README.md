@@ -24,6 +24,17 @@
 ### Send APM Sideband Flow
 ![alt text](image.png)
 
+#### Example AES encrypted sideband HTTP request:
+```
+GET / HTTP/1.1
+Host: session-receiver.local
+Accept: */*
+User-Agent: Big-IP iRule
+X-sessionData: vbFw5W/YFjoSkKh5XDYeAyNy/diGa7YG8+damw++qYCLUxHwcC2avlb+PA2GKmE304TUJSQ7zh1yhc2PYYZXsD1UG4iMGw0CkhgSxzb67UcUoFk6GiXblCQ5xNoxC8wjYbBeZdf9o6qGua5zBXaa5Kn74ZaOMx7VdHE2xtyk/v4mfTIktidJiv7GkRS1SPxadiTOlA3OI521QY2cMWtsfLu0CTwSh5knWW+ea+55v+6ogf5lQDedSJOorPqEbzTbdz+l+TIW1SjF8xcHM2XvNkTYtiuyUgMt2cb2gQtRq7rOfPqRxwOtkfbkopueQtU5/Jf6UIq067Rmtwflm6oIaFL6Y93RtpJ3AM3PTvsLICma3wno6Ae9rzE/seR9vBTKjLn80Nglxb8SPDqxcbjRhYBqu5u8zaw3vH33OT7v+gOb9iI56hG9BEnREywpBMBHBZ9Nrr0gGaDg05zhqB9eU24sJIwXCgp31llNmqTc5en64vXFO2Dg41U1DBM+3Hn9LnJSIbLYqQroSRmLUOWuj3nQkajDzZ+z5pKXWYpR3s7eIPY2tecJpzKTbhdAHSoNpUPDncb8OXU1Yp2lO3VBdZtevVDn/NxWkdTA0qzHU/NF2W/6TZAnvjFXit6Q+sbtic7jMbKxFFsjkoh5JG4CMgrY9nWJyMntzT5PYbD5Ehfy+LIvS3ZRZVQfyMvuPlsVssj/JDAF8Lia9JLIrsy63T3HTjgp652wHSxXD7rx+PjYGAhzJf42LDEMVGnOnP+SguofaWe5Sy6OUgFdv9kw/gjQTzJWuoMAzCGdL+rVqTfEFwjSOnEgjAAAAAE=
+clientless-mode: 1
+```
+> Header value encrypted with iRule AES function: https://clouddocs.f5.com/api/irules/AES.html
+
 ### Requirements
 - APM policy with `User Identification Method` = `HTTP` which means MRHSession cookie is used for session identification.
 - Enough architectural session persistence to establish a session with a single BIG-IP APM
