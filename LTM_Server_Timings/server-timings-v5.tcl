@@ -11,11 +11,11 @@ when FLOW_INIT {
 catch {
 
     ###User-Edit Variables start###
-    set st_enableLogWithoutHeader 1 ; #1 = enabled, 0 = disabled. when enabled, start logging for all HTTP requests and responses regardless of HTTP request header X-Enable-Server-Timing being present. The log local and remote variables still need to be enabled in order for the relevant logging to take place.
-    set st_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
+    set st_enableLogWithoutHeader 0 ; #1 = enabled, 0 = disabled. when enabled, start logging for all HTTP requests and responses regardless of HTTP request header X-Enable-Server-Timing being present. The log local and remote variables still need to be enabled in order for the relevant logging to take place.
+    set st_clientEnableTimingHeaderName X-Enable-Server-Timing-F5 ; #Client HTTP header name that triggers debug timing to take place.
     set st_clientEnableTimingHeaderValue 1 ; #Recommend an integer. Client HTTP header value that triggers debug timing to take place. 
     set st_enableInsertResponseHeader 1 ; #1 = enabled, 0 = disabled. Insert response HTTP header named $st_serverTimingHeaderName with server-timing data. 
-    set st_enableRemoteLog 1 ; #1 = enabled, 0 = disabled
+    set st_enableRemoteLog 0 ; #1 = enabled, 0 = disabled
     set st_enableLocalLog 1 ; #1 = enabled, 0 = disabled !MONITOR CPU AFTER ENABLING!
     set st_remoteLoggingPool logging-pool ; #Name of LTM pool to use for remote logging servers 
     set st_remoteLogProtocol UDP ; #UDP or TCP
