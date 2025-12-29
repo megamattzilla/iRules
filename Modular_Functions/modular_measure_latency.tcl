@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024.
-## version 1.1.2 Updated 4/2025
+## version 1.2.0 Updated 12/2025
 
 ## This iRule calculates latency at various TCP, TLS, HTTP, ASM events and calculates the latency between each stage. Others iRules can query this information stored in variables.
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
@@ -18,7 +18,7 @@ if {[catch {
     set mml_measureWithoutHeader 1 ; #1 = Measure all HTTP requests, 0 = only measure latency for HTTP requests that contain HTTP header name $mml_clientEnableTimingHeaderName and header value $mml_clientEnableTimingHeaderValue
     set mml_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
     set mml_clientEnableTimingHeaderValue 1 ; #Recommend an integer. Client HTTP header value that triggers debug timing to take place.
-    set mml_enableInsertResponseHeader 1 ; #1 = enabled, 0 = disabled. Insert response HTTP header named $mml_serverTimingHeaderName with server-timing data.
+    set mml_enableInsertResponseHeader 1 ; #1 = enabled, 0 = disabled. Insert response HTTP header named $mml_serverTimingHeaderName with server-timing data. This is ONLY inserted if the clientEnableTimingHeaderName and value is present. 
     set mml_serverTimingHeaderName Server-Timing ; #specify the HTTP response header name to be inserted.
     set mml_serverTimingLabel f5 ; #specify the root label name in server timing value. Example: "Server-Timing: $thisvalue, overhead;dur=1, origin;dur=2"
     ###User-Edit Variables end###
@@ -38,6 +38,7 @@ if {[catch {
     set mml_HTTP_RESPONSE 0
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
+    set mml_triggerInsertHeader 0
 } err] == 1 } { log local0.error "Error in FLOW_INIT: $err" }
 }
 
@@ -58,6 +59,10 @@ if {[HTTP::has_responded]} { return }
 if { $mml_measureWithoutHeader equals 1 or [HTTP::header value $mml_clientEnableTimingHeaderName ] equals $mml_clientEnableTimingHeaderValue } {
     set mml_debugTiming 1
     set mml_HTTP_REQUEST [clock clicks -milliseconds]
+
+if { [HTTP::header value $mml_clientEnableTimingHeaderName ] equals $mml_clientEnableTimingHeaderValue } {
+    set mml_triggerInsertHeader 1
+}
 }
 } err] == 1 } { log local0.error "Error in HTTP_REQUEST: $err" }
 }
@@ -123,6 +128,7 @@ if {[catch {
     set mml_HTTP_RESPONSE 0
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
+    set mml_triggerInsertHeader 0
      }
 
 } err] == 1 } { log local0.error "Error in HTTP_REQUEST: $err" }
@@ -162,6 +168,7 @@ if {[catch {
     set mml_HTTP_RESPONSE 0
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
+    set mml_triggerInsertHeader 0
 } err] == 1 } { log local0.error "Error in ASM_REQUEST_BLOCKING: $err" }
 }
 when HTTP_RESPONSE_RELEASE priority 520 {
@@ -195,7 +202,7 @@ if {[catch {
         set mml_g [expr { $mml_HTTP_RESPONSE_RELEASE - $mml_HTTP_RESPONSE } ] ; #measure time spent in F5 HTTP response processing time.
         set mml_overhead [expr { $mml_c + $mml_g } ] ; #Combine HTTP Request and Response F5 processing time
 
-        if { $mml_enableInsertResponseHeader equals 1 } {
+        if { $mml_enableInsertResponseHeader equals 1 and $mml_triggerInsertHeader equals 1 } {
             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.
             HTTP::header insert $mml_serverTimingHeaderName "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f, client-ssl;dur=$mml_b, server-ssl;dur=$mml_e, client-tcp;dur=$mml_a, server-tcp;dur=$mml_d"
         }
@@ -206,7 +213,7 @@ if {[catch {
         set mml_g [expr { $mml_HTTP_RESPONSE_RELEASE - $mml_HTTP_RESPONSE } ] ; #measure time spent in F5 HTTP response processing time.
         set mml_overhead [expr { $mml_c + $mml_g } ] ; #Combine HTTP Request and Response F5 processing time
 
-        if { $mml_enableInsertResponseHeader equals 1 } {
+        if { $mml_enableInsertResponseHeader equals 1 and $mml_triggerInsertHeader equals 1  } {
             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.
             HTTP::header insert $mml_serverTimingHeaderName "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f"
         }
@@ -225,6 +232,7 @@ if {[catch {
     set mml_HTTP_RESPONSE 0
     set mml_HTTP_RESPONSE_RELEASE 0
     set mml_debugTiming 0
+    set mml_triggerInsertHeader 0
 }
 } err] == 1 } { log local0.error "Error in HTTP_RESPONSE_RELEASE: $err" }
 }

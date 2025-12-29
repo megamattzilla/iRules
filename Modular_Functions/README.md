@@ -1,4 +1,4 @@
-### Latest Version: 1.1.2
+### Latest Version: 1.2.0
 
 ![alt text](2024-08-15_13-29-20.png)
 
@@ -12,6 +12,15 @@
 |  modular_traceparent.tcl  |  n/a  |     |  | | Yes|
 
 #### Version History
+
+#### 1.2.0
+
+Behavior Changes:
+- Changed `modular_measure_latency` to only insert the HTTP response timing header if the request had the enable timing header also. 
+    -  This covers use-cases where:
+        - all HTTP requests are having timing collected (`set mml_measureWithoutHeader 1`)
+        - some HTTP requests have HTTP headers containing `mml_clientEnableTimingHeaderName` and `mml_clientEnableTimingHeaderValue`
+            - only these requests will cause the server timing header to be inserted when header insertion feature is enabled with `mml_enableInsertResponseHeader 1`
 
 #### 1.1.2
 
