@@ -1,0 +1,4 @@
+sys icall handler periodic check_pool_health_handler {
+    interval 15
+    script stop_advertising_if_pool_unhealthy
+}

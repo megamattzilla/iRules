@@ -1,0 +1,53 @@
+sys icall script stop_advertising_if_pool_unhealthy {
+    app-service none
+    definition {
+        # 1. Configuration Variables
+        set pool_name "/Common/nginx-http"
+        set min_active 3
+        set vip_addr "/Common/10.6.1.41"
+        
+        # DEBUG FLAG: Set to 1 to enable verbose logging, 0 to disable
+        set debug 1
+
+        # 2. Get Current Active Members
+        set pool_status [tmsh::get_status /ltm pool $pool_name members]
+        set raw_count [regexp -all "availability-state available" $pool_status]
+
+        if { $raw_count > 0 } {
+             set active_members [expr { $raw_count - 1 }]
+        } else {
+             set active_members 0
+        }
+
+        if { $debug } {
+            exec logger -p local0.debug "iCall Debug: Checking $pool_name. Raw Count: $raw_count. Calculated Active Members: $active_members. Threshold: $min_active"
+        }
+
+        # 3. Logic Check
+        set current_va_obj [tmsh::get_config /ltm virtual-address $vip_addr route-advertisement]
+        set is_advertising_selective [string first "route-advertisement selective" $current_va_obj]
+        set is_advertising_enabled [string first "route-advertisement enabled" $current_va_obj]
+
+        if { $active_members < $min_active } {
+            # Condition Met: NOT ENOUGH MEMBERS -> SHOULD BE DISABLED
+            if { $is_advertising_selective != -1 || $is_advertising_enabled != -1 } {
+                # ACTION: Disable it
+                tmsh::modify /ltm virtual-address $vip_addr route-advertisement disabled
+                exec logger -p local0.notice "iCall: Disabling Route Advertisement for $vip_addr (Active Members: $active_members)"
+            } else {
+                # NO ACTION: Already disabled
+                if { $debug } { exec logger -p local0.debug "iCall Debug: No change needed. Route Advertisement is already DISABLED." }
+            }
+        } else {
+            # Condition Met: HEALTHY -> SHOULD BE ENABLED
+            if { $is_advertising_selective == -1 && $is_advertising_enabled == -1 } {
+                # ACTION: Enable it
+                tmsh::modify /ltm virtual-address $vip_addr route-advertisement selective
+                exec logger -p local0.notice "iCall: Enabling Route Advertisement for $vip_addr (Active Members: $active_members)"
+            } else {
+                 # NO ACTION: Already enabled
+                 if { $debug } { exec logger -p local0.debug "iCall Debug: No change needed. Route Advertisement is already ENABLED/SELECTIVE." }
+            }
+        }
+    }
+}
