@@ -1,5 +1,5 @@
 ## Made with heart by Matt Stovall 2/2024.
-## version 1.2.0 Updated 12/2025
+## version 1.3.0 Updated 03/2026
 
 ## This iRule calculates latency at various TCP, TLS, HTTP, ASM events and calculates the latency between each stage. Others iRules can query this information stored in variables.
 #All code is wrapped in catch statements so that any failure will be non-blocking. If making changes to the code, please ensure its still covered by the catch statements.
@@ -19,6 +19,7 @@ if {[catch {
     set mml_clientEnableTimingHeaderName X-Enable-Server-Timing ; #Client HTTP header name that triggers debug timing to take place.
     set mml_clientEnableTimingHeaderValue 1 ; #Recommend an integer. Client HTTP header value that triggers debug timing to take place.
     set mml_enableInsertResponseHeader 1 ; #1 = enabled, 0 = disabled. Insert response HTTP header named $mml_serverTimingHeaderName with server-timing data. This is ONLY inserted if the clientEnableTimingHeaderName and value is present. 
+    set mml_appendResponseHeader 1 ; #1 = enabled, 0 = disabled. If enabled, and the header already exists, append the timing data instead of inserting a new header. Will combine all headers present with name $mml_serverTimingHeaderName. 
     set mml_serverTimingHeaderName Server-Timing ; #specify the HTTP response header name to be inserted.
     set mml_serverTimingLabel f5 ; #specify the root label name in server timing value. Example: "Server-Timing: $thisvalue, overhead;dur=1, origin;dur=2"
     ###User-Edit Variables end###
@@ -204,7 +205,17 @@ if {[catch {
 
         if { $mml_enableInsertResponseHeader equals 1 and $mml_triggerInsertHeader equals 1 } {
             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.
-            HTTP::header insert $mml_serverTimingHeaderName "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f, client-ssl;dur=$mml_b, server-ssl;dur=$mml_e, client-tcp;dur=$mml_a, server-tcp;dur=$mml_d"
+            set mml_timing_data "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f, client-ssl;dur=$mml_b, server-ssl;dur=$mml_e, client-tcp;dur=$mml_a, server-tcp;dur=$mml_d"
+            
+            # Format and insert/append Server-Timing HTTP header
+            if { $mml_appendResponseHeader equals 1 and [HTTP::header exists $mml_serverTimingHeaderName] } {
+                # Get all existing values, join into a single string, remove old headers, and insert merged header
+                set existing_headers [join [HTTP::header values $mml_serverTimingHeaderName] ", "]
+                HTTP::header remove $mml_serverTimingHeaderName
+                HTTP::header insert $mml_serverTimingHeaderName "$existing_headers, $mml_timing_data"
+            } else {
+                HTTP::header insert $mml_serverTimingHeaderName $mml_timing_data
+            }
         }
 } else {
         #Only Collect request Level stats when this is not the first http Request in the TCP session.
@@ -215,7 +226,17 @@ if {[catch {
 
         if { $mml_enableInsertResponseHeader equals 1 and $mml_triggerInsertHeader equals 1  } {
             #Insert Server-Timing HTTP header into the HTTP response. Formatting per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing. These labels can be adjusted as needed.
-            HTTP::header insert $mml_serverTimingHeaderName "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f"
+            set mml_timing_data "$mml_serverTimingLabel, overhead;dur=$mml_overhead, origin;dur=$mml_f"
+            
+            # Format and insert/append Server-Timing HTTP header
+            if { $mml_appendResponseHeader equals 1 and [HTTP::header exists $mml_serverTimingHeaderName] } {
+                # Get all existing values, join into a single string, remove old headers, and insert merged header
+                set existing_headers [join [HTTP::header values $mml_serverTimingHeaderName] ", "]
+                HTTP::header remove $mml_serverTimingHeaderName
+                HTTP::header insert $mml_serverTimingHeaderName "$existing_headers, $mml_timing_data"
+            } else {
+                HTTP::header insert $mml_serverTimingHeaderName $mml_timing_data
+            }
         }
     #Clean up variables for next HTTP request incase there is TCP reuse.
     #Dont edit these system Variables

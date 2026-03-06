@@ -13,6 +13,16 @@
 
 #### Version History
 
+#### 1.3.0
+
+New Features:
+- Added `mml_appendResponseHeader` variable to allow F5 timing metrics to be appended to existing `Server-Timing` headers rather than overwriting or ignoring them.
+
+Behavior Changes:
+- Changed `HTTP_RESPONSE_RELEASE` logic to support merging with upstream `Server-Timing` headers if `mml_appendResponseHeader 1` is set.
+    - When `mml_appendResponseHeader 1` is set, the iRule now collects all existing `Server-Timing` headers (e.g., from NGINX or application servers), combines them into a single W3C-compliant comma-separated string, and appends the F5 timing metrics to the end.
+    - If `mml_appendResponseHeader 0` is set, or if no existing header is present in the response, it defaults to standard header insertion.
+
 #### 1.2.0
 
 Behavior Changes:
