@@ -1,3 +1,5 @@
+# Old Version - See README.md in parent directory for latest version
+
 # Dynamic Virtual Server Capacity Limiter
 
 ## Overview
